@@ -111,6 +111,9 @@ class BitFlipCode(QECCode):
         """
         Measure stabilizers: Z_0 Z_1 and Z_1 Z_2.
         
+        For the 3-qubit bit-flip code, we measure parity to detect bit-flip errors.
+        Since bit-flip errors commute with Z measurements, we can measure directly in Z basis.
+        
         Args:
             qreg: Optional quantum register (if None, creates new one)
             creg: Optional classical register for syndrome (if None, creates new one)
@@ -126,16 +129,18 @@ class BitFlipCode(QECCode):
         circuit = QuantumCircuit(qreg, creg)
         
         # Measure Z_0 Z_1 (parity of qubits 0 and 1)
-        # Use ancilla approach: CNOT into ancilla, measure ancilla
-        # For simplicity, we'll use the parity measurement approach
+        # We use CNOT to copy parity information, then measure
+        # CNOT(q0, q1) copies q0's value to q1 (XOR)
+        # After CNOT, q1 = q0 XOR q1 (parity)
+        # Measure q1 to get parity, then uncompute
         circuit.cx(qreg[0], qreg[1])
         circuit.measure(qreg[1], creg[0])
-        circuit.cx(qreg[0], qreg[1])  # Uncompute
+        circuit.cx(qreg[0], qreg[1])  # Uncompute to restore q1
         
         # Measure Z_1 Z_2 (parity of qubits 1 and 2)
         circuit.cx(qreg[1], qreg[2])
         circuit.measure(qreg[2], creg[1])
-        circuit.cx(qreg[1], qreg[2])  # Uncompute
+        circuit.cx(qreg[1], qreg[2])  # Uncompute to restore q2
         
         return circuit
     

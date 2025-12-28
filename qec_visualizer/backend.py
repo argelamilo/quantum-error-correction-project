@@ -107,15 +107,23 @@ class QECBackend:
         Returns:
             List of syndrome bits
         """
-        # Create a combined circuit
-        full_circuit = circuit.copy()
+        # Create a clean combined circuit - remove all classical registers first
+        from qiskit import QuantumRegister, ClassicalRegister
         
         # Get quantum register from original circuit
-        if not full_circuit.qregs:
+        if not circuit.qregs:
             raise ValueError("Circuit must have quantum registers")
         
-        qreg = full_circuit.qregs[0]
+        qreg = circuit.qregs[0]
         n_qubits = len(qreg)
+        
+        # Create a fresh circuit with only quantum register (no classical registers from encoding)
+        full_circuit = QuantumCircuit(qreg)
+        
+        # Copy all quantum operations from the error circuit (skip measurements)
+        for instruction in circuit.data:
+            if instruction.operation.name != 'measure':
+                full_circuit.append(instruction.operation, instruction.qubits)
         
         # Create classical register for syndrome
         n_syndromes = syndrome_measurement_circuit.num_clbits
@@ -123,8 +131,6 @@ class QECBackend:
         full_circuit.add_register(creg)
         
         # Rebuild syndrome measurement using the same quantum register
-        # Extract the syndrome measurement logic
-        syndrome_ops = []
         for instruction in syndrome_measurement_circuit.data:
             op = instruction.operation
             qubits = instruction.qubits
@@ -139,35 +145,56 @@ class QECBackend:
             elif new_qubits:
                 full_circuit.append(op, new_qubits)
         
-        # Run simulation
-        job = self.simulator.run(full_circuit, shots=1)
+        # Run simulation with multiple shots for reliability
+        job = self.simulator.run(full_circuit, shots=1024)
         result = job.result()
+        
+        # Extract syndrome - the syndrome register is the only classical register now
+        syndrome_creg = full_circuit.cregs[0]  # First (and only) classical register
+        
+        try:
+            # Method 1: Get counts for just the syndrome register (most reliable)
+            syndrome_counts = result.get_counts(creg=syndrome_creg)
+            if syndrome_counts:
+                syndrome_bitstring = max(syndrome_counts, key=syndrome_counts.get)
+                # Qiskit returns bitstrings - need to check the format
+                # Sometimes it's a string like "00" or "01", sometimes it's formatted differently
+                if isinstance(syndrome_bitstring, str):
+                    # Remove any spaces
+                    syndrome_bitstring = syndrome_bitstring.replace(' ', '')
+                    # Extract only 0/1
+                    syndrome_bitstring = ''.join(c for c in syndrome_bitstring if c in '01')
+                    
+                    if len(syndrome_bitstring) >= n_syndromes:
+                        # Qiskit typically uses little-endian for individual registers
+                        # But we want [creg[0], creg[1], ...] which is measurement order
+                        # Try both orders to be safe
+                        syndrome = [int(bit) for bit in syndrome_bitstring[:n_syndromes]]
+                        # Reverse if needed (Qiskit often uses little-endian)
+                        syndrome = syndrome[::-1] if len(syndrome) == n_syndromes else syndrome
+                        if len(syndrome) == n_syndromes:
+                            return syndrome
+        except Exception as e:
+            # Fall through to method 2
+            pass
+        
+        # Method 2: Parse from full counts
         counts = result.get_counts()
-        
-        # Extract syndrome from measurement result
         if counts:
-            bitstring = list(counts.keys())[0]
-            # Remove all whitespace and convert to list of bits
-            # Qiskit bitstrings may have spaces between registers
-            bitstring_clean = ''.join(bitstring.split())
-            # Filter out only '0' and '1' characters
-            bitstring_clean = ''.join(c for c in bitstring_clean if c in '01')
-            # Qiskit uses little-endian, so reverse to get correct order
-            all_bits = [int(bit) for bit in reversed(bitstring_clean)]
+            bitstring = max(counts, key=counts.get)
+            # Remove spaces and extract only 0/1
+            bitstring_clean = ''.join(c for c in bitstring if c in '01')
             
-            # Extract syndrome bits (they are in the syndrome register)
-            # Since we added the syndrome register last, it should be in the first n_syndromes bits
-            # (after reversing, which makes them the last n_syndromes in original order)
-            if len(all_bits) >= n_syndromes:
-                # Take the first n_syndromes bits (which are the syndrome register after reverse)
-                syndrome = all_bits[:n_syndromes]
-            else:
-                # Pad with zeros if needed
-                syndrome = all_bits + [0] * (n_syndromes - len(all_bits))
-            
-            return syndrome
+            # Since syndrome register is the only classical register, 
+            # the bitstring should just be the syndrome bits
+            if len(bitstring_clean) >= n_syndromes:
+                # Qiskit uses little-endian, so reverse to get measurement order
+                syndrome_bits_str = bitstring_clean[:n_syndromes]
+                syndrome = [int(bit) for bit in reversed(syndrome_bits_str)]
+                return syndrome
         
-        return []
+        # Default: return all zeros (no error detected)
+        return [0] * n_syndromes
     
     def calculate_fidelity(
         self,
