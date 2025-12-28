@@ -78,6 +78,33 @@ python -c "import qiskit; print('Qiskit version:', qiskit.__version__)"
 
 ## Usage
 
+### 🌟 **NEW: Web Frontend (Most Beginner-Friendly!)**
+
+For the best visual experience with a modern web interface:
+
+```bash
+python -m streamlit run frontend.py
+```
+
+Or simply:
+```bash
+streamlit run frontend.py
+```
+
+Or use the convenience scripts:
+- **Windows:** `run_frontend.bat`
+- **Linux/Mac:** `./run_frontend.sh`
+
+The web frontend provides:
+- 🎨 Beautiful, modern user interface
+- 📊 Real-time visualizations (circuit diagrams, state vectors, fidelity charts)
+- 🎯 Step-by-step guided workflow
+- 💡 Interactive widgets and clear explanations
+- 📈 Fidelity tracking and progress indicators
+- 🎓 Perfect for beginners and educational use
+
+See [FRONTEND_GUIDE.md](FRONTEND_GUIDE.md) for detailed instructions.
+
 ### Recommended: Interactive Tool (Easiest to Understand)
 
 For the clearest, step-by-step experience:

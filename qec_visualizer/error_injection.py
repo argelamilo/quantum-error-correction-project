@@ -68,38 +68,56 @@ class ErrorInjector:
         error_circuit = circuit.copy()
         
         # Apply error with given probability
-        if np.random.random() < error_probability:
+        # If probability is 1.0 (or very close), always apply
+        if error_probability >= 1.0 - 1e-10:
+            should_apply = True
+        else:
+            should_apply = np.random.random() < error_probability
+        
+        if should_apply:
+            # Get the actual qubit from the circuit's quantum register
+            # This ensures we're using the correct qubit object
+            if error_circuit.qregs:
+                qreg = error_circuit.qregs[0]
+                if qubit < len(qreg):
+                    target_qubit = qreg[qubit]
+                else:
+                    raise ValueError(f"Qubit index {qubit} out of range for register with {len(qreg)} qubits")
+            else:
+                # Fallback: use qubit index directly
+                target_qubit = qubit
+            
             if error_type == ErrorType.BIT_FLIP:
-                error_circuit.x(qubit)
+                error_circuit.x(target_qubit)
             
             elif error_type == ErrorType.PHASE_FLIP:
-                error_circuit.z(qubit)
+                error_circuit.z(target_qubit)
             
             elif error_type == ErrorType.Y_ERROR:
-                error_circuit.y(qubit)
+                error_circuit.y(target_qubit)
             
             elif error_type == ErrorType.DEPOLARIZING:
                 # Randomly choose X, Y, or Z error
                 pauli_error = np.random.choice(['X', 'Y', 'Z'])
                 if pauli_error == 'X':
-                    error_circuit.x(qubit)
+                    error_circuit.x(target_qubit)
                 elif pauli_error == 'Y':
-                    error_circuit.y(qubit)
+                    error_circuit.y(target_qubit)
                 else:
-                    error_circuit.z(qubit)
+                    error_circuit.z(target_qubit)
             
             elif error_type == ErrorType.ROTATION_X:
                 # Rx gate error (as per professor feedback)
                 angle = rotation_angle if rotation_angle is not None else np.pi / 4
-                error_circuit.rx(angle, qubit)
+                error_circuit.rx(angle, target_qubit)
             
             elif error_type == ErrorType.ROTATION_Y:
                 angle = rotation_angle if rotation_angle is not None else np.pi / 4
-                error_circuit.ry(angle, qubit)
+                error_circuit.ry(angle, target_qubit)
             
             elif error_type == ErrorType.ROTATION_Z:
                 angle = rotation_angle if rotation_angle is not None else np.pi / 4
-                error_circuit.rz(angle, qubit)
+                error_circuit.rz(angle, target_qubit)
         
         return error_circuit
     
