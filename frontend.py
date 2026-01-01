@@ -12,10 +12,11 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
+from typing import Optional
 
 from qec_visualizer import (
     BitFlipCode, PerfectCode, ErrorInjector, ErrorType,
-    QECVisualizer, QECBackend
+    QECVisualizer, QECBackend, InteractiveVisualizer
 )
 
 # Page configuration
@@ -26,29 +27,36 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better styling
+# Custom CSS for modern styling
 st.markdown("""
 <style>
+    /* Modern Header Styles */
     .main-header {
         font-size: 3rem;
         font-weight: bold;
-        color: #1f77b4;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
         text-align: center;
         margin-bottom: 1rem;
+        letter-spacing: -1px;
     }
     .sub-header {
         font-size: 1.5rem;
         color: #666;
         text-align: center;
         margin-bottom: 2rem;
+        font-weight: 300;
     }
     .step-box {
-        background-color: #e3f2fd;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         padding: 1.5rem;
-        border-radius: 10px;
-        border-left: 5px solid #1f77b4;
+        border-radius: 12px;
+        border-left: 5px solid #667eea;
         margin: 1rem 0;
         color: #1a1a1a;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
     .step-box h2 {
         color: #1565c0;
@@ -63,24 +71,26 @@ st.markdown("""
         color: #0d47a1;
     }
     .success-box {
-        background-color: #c8e6c9;
+        background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%);
         padding: 1rem;
-        border-radius: 5px;
-        border-left: 5px solid #28a745;
+        border-radius: 8px;
+        border-left: 5px solid #4caf50;
         margin: 1rem 0;
         color: #1a1a1a;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     .success-box h3 {
         color: #1b5e20;
         margin-top: 0;
     }
     .info-box {
-        background-color: #b3e5fc;
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
         padding: 1rem;
-        border-radius: 5px;
-        border-left: 5px solid #17a2b8;
+        border-radius: 8px;
+        border-left: 5px solid #2196f3;
         margin: 1rem 0;
         color: #1a1a1a;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     .info-box strong {
         color: #01579b;
@@ -128,6 +138,34 @@ st.markdown("""
         border-radius: 8px 8px 0 0;
         padding: 0.75rem 1.5rem;
     }
+    
+    /* Modern sidebar styling */
+    .css-1d391kg {
+        padding-top: 2rem;
+    }
+    
+    /* Better button styling with hover effects */
+    .stButton > button {
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        font-weight: 500;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Progress bar styling */
+    .stProgress > div > div > div {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    /* Better caption styling */
+    .stCaption {
+        font-size: 0.85rem;
+        color: #666;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -162,8 +200,47 @@ def get_backend():
 def get_visualizer():
     return QECVisualizer()
 
+@st.cache_resource
+def get_interactive_visualizer():
+    return InteractiveVisualizer()
+
 backend = get_backend()
 visualizer = get_visualizer()
+interactive_vis = get_interactive_visualizer()
+
+# Helper function to convert error names to PanQEC format (X, Y, Z)
+def convert_error_name_to_panqec(error_name: str) -> Optional[str]:
+    """
+    Convert error name from frontend format to PanQEC format.
+    
+    Args:
+        error_name: Error name like "Bit-Flip (X)", "Phase-Flip (Z)", etc.
+        
+    Returns:
+        PanQEC format error type: 'X', 'Y', 'Z', or None
+    """
+    if not error_name:
+        return None
+    error_name_lower = error_name.lower()
+    if "bit-flip" in error_name_lower or error_name_lower.endswith("(x)") or error_name_lower == "x":
+        return "X"
+    elif "phase-flip" in error_name_lower or error_name_lower.endswith("(z)") or error_name_lower == "z":
+        return "Z"
+    elif error_name_lower.endswith("(y)") or error_name_lower == "y":
+        return "Y"
+    elif "rotation" in error_name_lower:
+        # Extract axis from rotation error
+        if "rx" in error_name_lower or "rotation x" in error_name_lower:
+            return "X"
+        elif "ry" in error_name_lower or "rotation y" in error_name_lower:
+            return "Y"
+        elif "rz" in error_name_lower or "rotation z" in error_name_lower:
+            return "Z"
+        else:
+            return "X"  # Default to X for rotation errors
+    elif "depolarizing" in error_name_lower:
+        return "X"  # Default to X for depolarizing (it's random anyway)
+    return None
 
 def reset_session():
     """Reset the session to start over."""
@@ -210,7 +287,7 @@ def plot_state_vector_bars(state, title="State Vector"):
     n_qubits = state.num_qubits
     labels = [format(i, f'0{n_qubits}b') for i in range(len(probs))]
     
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = plt.subplots(figsize=(7, 4))  # Smaller default size
     bars = ax.bar(labels, probs, color='steelblue', alpha=0.7, edgecolor='navy')
     
     # Add value labels
@@ -348,44 +425,79 @@ def main():
     st.markdown('<div class="main-header">⚛️ Quantum Error Correction Explorer</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-header">Learn QEC through interactive visualization</div>', unsafe_allow_html=True)
     
-    # Sidebar
+    # Modern Sidebar Navigation
     with st.sidebar:
-        st.header("🎯 Navigation")
+        st.markdown("""
+        <div style='text-align: center; padding: 1rem 0;'>
+            <h1 style='font-size: 1.8rem; margin: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>
+                ⚛️ QEC Explorer
+            </h1>
+        </div>
+        """, unsafe_allow_html=True)
         st.markdown("---")
         
+        # Modern step navigation with progress indicator
+        st.markdown("### 🎯 Progress")
+        progress_value = st.session_state.step / 6.0
+        st.progress(progress_value)
+        st.caption(f"Step {st.session_state.step} of 6")
+        st.markdown("---")
+        
+        # Interactive step buttons
         steps = [
-            "1️⃣ Select QEC Code",
-            "2️⃣ Encode Logical Qubit",
-            "3️⃣ Inject Error",
-            "4️⃣ Measure Syndrome",
-            "5️⃣ Apply Correction",
-            "6️⃣ View Results"
+            ("1️⃣", "Select Code", "Choose your QEC code"),
+            ("2️⃣", "Encode", "Encode logical qubit"),
+            ("3️⃣", "Inject Error", "Simulate an error"),
+            ("4️⃣", "Measure", "Detect the error"),
+            ("5️⃣", "Correct", "Apply correction"),
+            ("6️⃣", "Results", "View outcomes")
         ]
         
-        for i, step_name in enumerate(steps, 1):
+        for i, (emoji, name, desc) in enumerate(steps, 1):
             if i == st.session_state.step:
-                st.markdown(f"**{step_name}** ← Current")
+                st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            padding: 0.75rem; border-radius: 8px; margin: 0.5rem 0;
+                            color: white; font-weight: bold;'>
+                    {emoji} {name} ← Current
+                </div>
+                """, unsafe_allow_html=True)
             else:
-                st.markdown(step_name)
+                st.markdown(f"**{emoji} {name}**")
+                st.caption(f"_{desc}_")
         
         st.markdown("---")
-        if st.button("🔄 Reset Session", use_container_width=True):
-            reset_session()
-            st.rerun()
+        
+        # Action buttons
+        col_reset, col_info = st.columns(2)
+        with col_reset:
+            if st.button("🔄 Reset", use_container_width=True, help="Start a new session"):
+                reset_session()
+                st.rerun()
+        
+        with col_info:
+            if st.button("ℹ️ Help", use_container_width=True, help="Show help information"):
+                st.info("💡 Navigate through steps using the progress bar above. Each step builds on the previous one!")
         
         st.markdown("---")
-        st.markdown("### 📚 About")
-        st.markdown("""
-        This tool helps you understand Quantum Error Correction (QEC) through interactive exploration.
         
-        **Workflow:**
-        1. Choose a QEC code
-        2. Encode a logical qubit
-        3. Inject an error
-        4. Detect the error (syndrome)
-        5. Correct the error
-        6. See the results!
-        """)
+        # Quick info section
+        with st.expander("📚 Quick Guide", expanded=False):
+            st.markdown("""
+            **QEC Workflow:**
+            1. **Select Code** → Choose your error correction scheme
+            2. **Encode** → Protect your quantum information
+            3. **Inject Error** → Simulate quantum noise
+            4. **Measure Syndrome** → Detect where errors occurred
+            5. **Correct** → Fix the errors automatically
+            6. **View Results** → See success metrics!
+            
+            **Tips:**
+            - Start with 3-qubit Bit-Flip code for beginners
+            - Use 2D view first, then try 3D for better visualization
+            - Check the color legend on each page
+            """)
     
     # Main content area
     if st.session_state.step == 1:
@@ -405,6 +517,10 @@ def step_1_select_code():
     """Step 1: Select QEC Code"""
     st.markdown('<div class="step-box"><h2>Step 1: Select a Quantum Error Correction Code</h2></div>', unsafe_allow_html=True)
     
+    # Show code structure previews
+    st.markdown("### 📊 Code Structure Preview")
+    preview_mode = st.radio("View mode:", ["2D", "3D"], horizontal=True, key="preview_mode")
+    
     col1, col2 = st.columns(2)
     
     with col1:
@@ -419,6 +535,14 @@ def step_1_select_code():
         
         **Use case:** Understanding how QEC works
         """)
+        
+        # Show 2D/3D preview
+        preview_code_1 = BitFlipCode()
+        if preview_mode == "2D":
+            fig_preview_1 = interactive_vis.visualize_code_2d(preview_code_1, show_stabilizers=True, show_connections=True)
+        else:
+            fig_preview_1 = interactive_vis.visualize_code_3d(preview_code_1, show_stabilizers=True, show_connections=True)
+        st.plotly_chart(fig_preview_1, use_container_width=True, key="preview_1")
         
         if st.button("Select Bit-Flip Code", use_container_width=True, type="primary"):
             st.session_state.code = BitFlipCode()
@@ -438,13 +562,52 @@ def step_1_select_code():
         **Use case:** Advanced error correction
         """)
         
+        # Show 2D/3D preview
+        preview_code_2 = PerfectCode()
+        if preview_mode == "2D":
+            fig_preview_2 = interactive_vis.visualize_code_2d(preview_code_2, show_stabilizers=True, show_connections=True)
+        else:
+            fig_preview_2 = interactive_vis.visualize_code_3d(preview_code_2, show_stabilizers=True, show_connections=True)
+        st.plotly_chart(fig_preview_2, use_container_width=True, key="preview_2")
+        
         if st.button("Select Perfect Code", use_container_width=True):
             st.session_state.code = PerfectCode()
             st.session_state.step = 2
             st.rerun()
     
     st.markdown("---")
-    st.markdown('<div class="info-box"><strong>💡 Tip:</strong> If you\'re new to QEC, start with the 3-qubit Bit-Flip Code. It\'s simpler and easier to understand!</div>', unsafe_allow_html=True)
+    
+    # Beginner-friendly color legend
+    st.markdown("### 🎨 Color Guide (PanQEC Style)")
+    col_legend1, col_legend2, col_legend3 = st.columns(3)
+    
+    with col_legend1:
+        st.markdown("""
+        **Qubits:**
+        - ⚪ Light Gray = No error
+        - 🔴 Red = X error (Bit-flip)
+        - 🔵 Blue = Z error (Phase-flip)
+        - 🟢 Green = Y error or Corrected
+        - 🟠 Orange = Rotation error
+        """)
+    
+    with col_legend2:
+        st.markdown("""
+        **Stabilizers:**
+        - ⚪ White = No error detected
+        - 🟡 Gold = Error detected!
+        - ⚫ Gray = Not measured yet
+        """)
+    
+    with col_legend3:
+        st.markdown("""
+        **Visualization Tips:**
+        - 🔄 **2D Mode**: Click and drag to pan
+        - 🌐 **3D Mode**: Click and drag to rotate, scroll to zoom
+        - 💡 Hover over elements for details
+        """)
+    
+    st.markdown('<div class="info-box"><strong>💡 Beginner Tip:</strong> Start with the 3-qubit Bit-Flip Code! It\'s the simplest and perfect for learning. Try the <strong>2D view</strong> first to see the structure clearly, then switch to <strong>3D</strong> for a more immersive experience!</div>', unsafe_allow_html=True)
 
 def step_2_encode():
     """Step 2: Encode Logical Qubit"""
@@ -456,10 +619,54 @@ def step_2_encode():
     
     st.markdown(f'<div class="step-box"><h2>Step 2: Encode Logical Qubit</h2><p>Using: <strong>{st.session_state.code.name}</strong></p></div>', unsafe_allow_html=True)
     
+    # Show code structure visualization
+    col_vis1, col_vis2 = st.columns(2)
+    view_mode = st.radio("Visualization mode:", ["2D", "3D"], horizontal=True, key="encode_view_mode")
+    
+    with col_vis1:
+        if view_mode == "2D":
+            fig_code = interactive_vis.visualize_code_2d(st.session_state.code, show_stabilizers=True, show_connections=True)
+        else:
+            fig_code = interactive_vis.visualize_code_3d(st.session_state.code, show_stabilizers=True, show_connections=True)
+        st.plotly_chart(fig_code, use_container_width=True, key="code_structure_encode")
+    
+    with col_vis2:
+        st.markdown("""
+        ### 🎓 Understanding the Visualization:
+        
+        **What you're seeing:**
+        - ⚪ **Light circles** = Physical qubits (the quantum bits that store information)
+        - 💎 **Diamond shapes** = Stabilizers (special "error detectors" that monitor qubits)
+        - **Gray lines** = Connections showing which qubits each stabilizer watches
+        
+        **How QEC works:**
+        1. We encode 1 logical qubit into multiple physical qubits
+        2. Stabilizers continuously monitor the qubits
+        3. If an error occurs, stabilizers detect it (turn gold)
+        4. We use this information to correct the error
+        
+        **💡 Beginner Tip:** Think of stabilizers like security cameras watching the qubits!
+        """)
+    
     st.markdown("""
-    ### What is Encoding?
-    Encoding is the process of converting a single logical qubit (the information we want to protect) 
-    into multiple physical qubits. This redundancy allows us to detect and correct errors.
+    ### 🎓 What is Encoding? (Beginner-Friendly Explanation)
+    
+    **Simple Analogy:** Think of encoding like making multiple copies of an important document. If one copy gets damaged, you still have the others!
+    
+    **In Quantum Terms:**
+    - **Logical Qubit**: The original information you want to protect (like a message)
+    - **Physical Qubits**: Multiple copies/redundant storage of that information
+    - **Encoding**: The process of converting 1 logical qubit into multiple physical qubits
+    
+    **Why Encoding Matters:**
+    - Quantum information is fragile and can easily be corrupted
+    - By spreading it across multiple qubits, we create redundancy
+    - This redundancy lets us detect and fix errors without losing our information!
+    
+    **💡 Example:** For the 3-qubit code:
+    - Logical |0⟩ becomes |000⟩ (all three qubits in state 0)
+    - Logical |1⟩ becomes |111⟩ (all three qubits in state 1)
+    - If one qubit flips (0→1), we can detect and fix it!
     """)
     
     col1, col2 = st.columns([1, 2])
@@ -496,18 +703,24 @@ def step_2_encode():
             - Uses stabilizer generators for error detection
             """)
     
-    # Show encoding circuit if available
+    # Show encoding circuit if available - compact but high quality
     if st.session_state.encoding_circuit is not None:
         st.markdown("---")
         st.markdown("### Encoding Circuit")
-        fig = plot_circuit(st.session_state.encoding_circuit, "Encoding Circuit", show_title=False)
-        st.pyplot(fig)
+        fig = plot_circuit(st.session_state.encoding_circuit, "Encoding Circuit", figsize_scale=0.5, max_width=8, show_title=False)
+        if hasattr(fig, 'set_size_inches'):
+            current_size = fig.get_size_inches()
+            fig.set_size_inches(min(current_size[0], 8), min(current_size[1], 3))
+        plt.tight_layout(pad=0.5)
+        st.pyplot(fig, dpi=200)
         plt.close()
         
-        # Show state vector
+        # Show state vector - compact
         state = backend.get_statevector(st.session_state.encoding_circuit)
         fig = plot_state_vector_bars(state, "Encoded State Vector")
-        st.pyplot(fig)
+        fig.set_size_inches(6, 3)  # Compact size
+        plt.tight_layout()
+        st.pyplot(fig, dpi=200)
         plt.close()
 
 def step_3_inject_error():
@@ -521,9 +734,25 @@ def step_3_inject_error():
     st.markdown('<div class="step-box"><h2>Step 3: Inject an Error</h2></div>', unsafe_allow_html=True)
     
     st.markdown("""
-    ### What is Error Injection?
-    Errors can occur in quantum systems due to noise, decoherence, or imperfect gates. 
-    We'll simulate an error to see how the QEC code detects and corrects it.
+    ### 🎓 What is Error Injection? (Beginner-Friendly Explanation)
+    
+    **Why Errors Happen:**
+    Quantum computers are extremely sensitive! Errors can occur from:
+    - **Noise** from the environment (temperature, electromagnetic fields)
+    - **Decoherence** (quantum states naturally "leak" information)
+    - **Imperfect gates** (operations aren't 100% accurate)
+    - **Interactions** with other qubits
+    
+    **What We're Doing:**
+    We'll **intentionally inject** an error (like flipping a bit) to simulate what happens in real quantum computers. This lets us test if our error correction code works!
+    
+    **Types of Errors:**
+    - **X (Bit-flip)**: Changes |0⟩ to |1⟩ and vice versa (most common)
+    - **Z (Phase-flip)**: Flips the phase of quantum states
+    - **Y**: Combination of X and Z errors
+    - **Rotation errors**: Gradual changes (more realistic, but harder to correct)
+    
+    **💡 Think of it like:** Testing a car's brakes by intentionally hitting the brake pedal - we want to see if the safety systems work!
     """)
     
     col1, col2 = st.columns([1, 1])
@@ -579,6 +808,37 @@ def step_3_inject_error():
         ErrorType.ROTATION_Z: "**Rotation Z (Rz)**: Rotates the qubit around the Z-axis. Phase rotation.",
     }
     st.markdown(f'<div class="info-box">{error_descriptions[error_type]}</div>', unsafe_allow_html=True)
+    
+    # Show visualization with error preview
+    st.markdown("---")
+    st.markdown("### 📊 Code Visualization with Error Preview")
+    error_view_mode = st.radio("View mode:", ["2D", "3D"], horizontal=True, key="error_view_mode")
+    
+    # Preview error on visualization - convert error name to PanQEC format (X, Y, Z)
+    error_qubits_preview = {qubit} if error_prob >= 1.0 else set()
+    error_type_panqec = convert_error_name_to_panqec(error_name)
+    error_types_preview = {qubit: error_type_panqec} if error_prob >= 1.0 and error_type_panqec else {}
+    
+    if error_view_mode == "2D":
+        fig_error_preview = interactive_vis.visualize_code_2d(
+            st.session_state.code,
+            error_qubits=error_qubits_preview,
+            error_types=error_types_preview,
+            show_stabilizers=True,
+            show_connections=True
+        )
+    else:
+        fig_error_preview = interactive_vis.visualize_code_3d(
+            st.session_state.code,
+            error_qubits=error_qubits_preview,
+            error_types=error_types_preview,
+            show_stabilizers=True,
+            show_connections=True
+        )
+    st.plotly_chart(fig_error_preview, use_container_width=True, key="error_preview")
+    
+    if error_prob >= 1.0:
+        st.info(f"💡 Preview: Error will be injected on qubit {qubit} ({error_name})")
     
     if st.button("💥 Inject Error", use_container_width=True, type="primary"):
         error_injector = ErrorInjector(n_qubits=n_qubits)
@@ -675,6 +935,32 @@ def step_3_inject_error():
     
     # Show comparison if error already injected
     if st.session_state.error_circuit is not None:
+        # Show error visualization
+        st.markdown("---")
+        st.markdown("### 📊 Error Visualization")
+        injected_error_view = st.radio("View mode:", ["2D", "3D"], horizontal=True, key="injected_error_view")
+        
+        error_qubits_injected = {st.session_state.last_error_qubit} if st.session_state.error_was_applied else set()
+        error_type_panqec = convert_error_name_to_panqec(st.session_state.last_error_type) if st.session_state.error_was_applied else None
+        error_types_injected = {st.session_state.last_error_qubit: error_type_panqec} if st.session_state.error_was_applied and error_type_panqec else {}
+        
+        if injected_error_view == "2D":
+            fig_error_injected = interactive_vis.visualize_code_2d(
+                st.session_state.code,
+                error_qubits=error_qubits_injected,
+                error_types=error_types_injected,
+                show_stabilizers=True,
+                show_connections=True
+            )
+        else:
+            fig_error_injected = interactive_vis.visualize_code_3d(
+                st.session_state.code,
+                error_qubits=error_qubits_injected,
+                error_types=error_types_injected,
+                show_stabilizers=True,
+                show_connections=True
+            )
+        st.plotly_chart(fig_error_injected, use_container_width=True, key="error_injected")
         st.markdown("---")
         st.markdown("### State Comparison")
         
@@ -711,13 +997,17 @@ def step_3_inject_error():
         with col1:
             initial_state = backend.get_statevector(st.session_state.encoding_circuit)
             fig1 = plot_state_vector_bars(initial_state, "Before Error")
-            st.pyplot(fig1)
+            fig1.set_size_inches(5, 2.5)  # Compact
+            plt.tight_layout()
+            st.pyplot(fig1, dpi=200)
             plt.close()
         
         with col2:
             error_state = backend.get_statevector(st.session_state.error_circuit)
             fig2 = plot_state_vector_bars(error_state, "After Error")
-            st.pyplot(fig2)
+            fig2.set_size_inches(5, 2.5)  # Compact
+            plt.tight_layout()
+            st.pyplot(fig2, dpi=200)
             plt.close()
         
         fidelity = backend.calculate_fidelity(initial_state, error_state)
@@ -825,6 +1115,47 @@ def step_4_measure_syndrome():
         syndrome_str = ''.join(map(str, st.session_state.syndrome))
         st.markdown(f'<div class="info-box"><h3>Syndrome: <code>{syndrome_str}</code></h3></div>', unsafe_allow_html=True)
         
+        # Show syndrome visualization
+        st.markdown("### 📊 Syndrome Visualization")
+        syndrome_view_mode = st.radio("View mode:", ["2D", "3D"], horizontal=True, key="syndrome_view_mode")
+        
+        # Convert syndrome list to dict for visualization
+        syndrome_dict = {i: st.session_state.syndrome[i] for i in range(len(st.session_state.syndrome))}
+        error_qubits_syndrome = {st.session_state.last_error_qubit} if st.session_state.error_was_applied else set()
+        error_type_panqec = convert_error_name_to_panqec(st.session_state.last_error_type) if st.session_state.error_was_applied else None
+        error_types_syndrome = {st.session_state.last_error_qubit: error_type_panqec} if st.session_state.error_was_applied and error_type_panqec else {}
+        
+        if syndrome_view_mode == "2D":
+            fig_syndrome = interactive_vis.visualize_code_2d(
+                st.session_state.code,
+                error_qubits=error_qubits_syndrome,
+                error_types=error_types_syndrome,
+                syndrome_values=syndrome_dict,
+                show_stabilizers=True,
+                show_connections=True
+            )
+        else:
+            fig_syndrome = interactive_vis.visualize_code_3d(
+                st.session_state.code,
+                error_qubits=error_qubits_syndrome,
+                error_types=error_types_syndrome,
+                syndrome_values=syndrome_dict,
+                show_stabilizers=True,
+                show_connections=True
+            )
+        st.plotly_chart(fig_syndrome, use_container_width=True, key="syndrome_viz")
+        
+        st.markdown("""
+        **🎨 What the Colors Mean:**
+        - 🔴 **Red qubits** = X (bit-flip) errors detected
+        - 🔵 **Blue qubits** = Z (phase-flip) errors detected  
+        - 🟢 **Green qubits** = Y errors or successfully corrected qubits
+        - 🟡 **Gold stabilizers** = Error detected! (Syndrome = 1)
+        - ⚪ **White stabilizers** = No error detected (Syndrome = 0)
+        
+        **💡 Beginner Tip:** When a stabilizer turns gold, it means it "saw" an error on one of its connected qubits!
+        """)
+        
         # Interpret syndrome
         if st.session_state.code.name == "3-qubit Bit-Flip Code":
             interpretations = {
@@ -852,8 +1183,12 @@ def step_4_measure_syndrome():
         st.markdown("---")
         st.markdown("### Syndrome Measurement Circuit")
         syndrome_circuit = st.session_state.code.syndrome_measurement()
-        fig = plot_circuit(syndrome_circuit, "Syndrome Measurement Circuit", show_title=False)
-        st.pyplot(fig)
+        fig = plot_circuit(syndrome_circuit, "Syndrome Measurement Circuit", figsize_scale=0.5, max_width=8, show_title=False)
+        if hasattr(fig, 'set_size_inches'):
+            current_size = fig.get_size_inches()
+            fig.set_size_inches(min(current_size[0], 8), min(current_size[1], 3))
+        plt.tight_layout(pad=0.5)
+        st.pyplot(fig, dpi=200)
         plt.close()
         
         # Explain the circuit
@@ -877,37 +1212,35 @@ def step_5_apply_correction():
     st.markdown('<div class="step-box"><h2>Step 5: Apply Error Correction</h2></div>', unsafe_allow_html=True)
     
     st.markdown("""
-    ### What is Error Correction?
+    ### 🎓 What is Error Correction? (Beginner-Friendly Explanation)
     
-    **Error correction** is the final step where we use the syndrome information to fix the detected error and restore the original encoded quantum state.
+    **Simple Analogy:** If encoding is like making backup copies, error correction is like using those backups to restore your original document when one copy gets damaged!
     
-    #### How It Works:
+    **The Correction Process:**
+    1. **Read the Syndrome**: Like reading GPS coordinates - tells us where the error is
+    2. **Apply the Fix**: We apply the **inverse** operation to undo the error
+    3. **Verify**: Check if the correction worked (fidelity should increase!)
     
-    1. **Syndrome Lookup**: Based on the syndrome bits, we determine:
-       - **Which qubit** has the error
-       - **What type** of correction to apply
+    **How It Works (Simple Version):**
+    - If an **X error** flipped a qubit from |0⟩ to |1⟩, we apply **X again** to flip it back to |0⟩
+    - Think of it like: "Oops, flipped it the wrong way? Flip it again to fix it!"
     
-    2. **Correction Operation**: We apply the inverse of the error
-       - If a bit-flip (X) error occurred, we apply another X gate to flip it back
-       - This restores the qubit to its original state
+    **Correction Table (3-Qubit Code):**
+    | Syndrome | Meaning | Action |
+    |----------|---------|--------|
+    | **00** | No error | Do nothing ✓ |
+    | **10** | Error on qubit 0 | Apply X to qubit 0 |
+    | **01** | Error on qubit 2 | Apply X to qubit 2 |
+    | **11** | Error on qubit 1 | Apply X to qubit 1 |
     
-    3. **Result**: After correction, the encoded state should match the original encoded state
+    **💡 Why "No Correction Needed"?**
+    This happens when:
+    - ✅ No error actually occurred (error probability was < 100%)
+    - ❌ Wrong error type (code can't detect it - try X error instead!)
+    - ⚠️ Error didn't affect stabilizers
     
-    #### For 3-Qubit Bit-Flip Code:
-    - **Syndrome [1,0]**: Error on qubit 0 → Apply X gate to qubit 0
-    - **Syndrome [0,1]**: Error on qubit 2 → Apply X gate to qubit 2
-    - **Syndrome [1,1]**: Error on qubit 1 → Apply X gate to qubit 1
-    - **Syndrome [0,0]**: No error detected → No correction needed
-    
-    #### Why "No Correction Needed" Might Appear:
-    
-    This can happen for several reasons:
-    
-    1. **No error actually occurred**: If error probability < 1.0, sometimes no error happens
-    2. **Wrong error type**: The code can only detect bit-flip errors - other errors won't be detected
-    3. **Error on wrong qubit**: Very rarely, errors might cancel out or not affect the syndrome
-    
-    **💡 Tip**: Make sure you're using a **bit-flip (X) error** with the 3-qubit bit-flip code for best results!
+    **🎯 Success Criteria:**
+    After correction, your qubits should turn **green** in the visualization, and fidelity should be close to 1.0!
     """)
     
     # Show syndrome and what correction will be applied
@@ -981,8 +1314,12 @@ def step_5_apply_correction():
             st.markdown("**💡 Suggestion**: Try injecting a **bit-flip (X) error** with **error probability = 1.0** to ensure an error occurs and is detected.")
         else:
             st.markdown("**Preview of correction to be applied:**")
-            fig_preview = plot_circuit(preview_correction, "Correction Circuit Preview", show_title=False)
-            st.pyplot(fig_preview)
+            fig_preview = plot_circuit(preview_correction, "Correction Circuit Preview", figsize_scale=0.4, max_width=7, show_title=False)
+            if hasattr(fig_preview, 'set_size_inches'):
+                current_size = fig_preview.get_size_inches()
+                fig_preview.set_size_inches(min(current_size[0], 7), min(current_size[1], 2.5))
+            plt.tight_layout(pad=0.5)
+            st.pyplot(fig_preview, dpi=200)
             plt.close()
             st.markdown(f"**Operations:** {preview_correction.count_ops()}")
             
@@ -996,6 +1333,58 @@ def step_5_apply_correction():
                 }
                 if syndrome_tuple in correction_map:
                     st.success(f"**Correction Action:** {correction_map[syndrome_tuple]}")
+    
+    # Show correction preview visualization
+    if st.session_state.syndrome is not None:
+        st.markdown("---")
+        st.markdown("### 📊 Correction Preview Visualization")
+        correction_preview_mode = st.radio("View mode:", ["2D", "3D"], horizontal=True, key="correction_preview_mode")
+        
+        # Determine which qubits need correction based on syndrome
+        correction_circuit_preview = st.session_state.code.correct(st.session_state.syndrome)
+        corrected_qubits_preview = set()
+        # Extract qubit indices from correction circuit
+        for instruction in correction_circuit_preview.data:
+            for q in instruction.qubits:
+                if hasattr(q, '_index'):
+                    corrected_qubits_preview.add(q._index)
+        
+        syndrome_dict_preview = {i: st.session_state.syndrome[i] for i in range(len(st.session_state.syndrome))}
+        error_qubits_preview = {st.session_state.last_error_qubit} if st.session_state.error_was_applied else set()
+        error_type_panqec = convert_error_name_to_panqec(st.session_state.last_error_type) if st.session_state.error_was_applied else None
+        error_types_preview = {st.session_state.last_error_qubit: error_type_panqec} if st.session_state.error_was_applied and error_type_panqec else {}
+        
+        if correction_preview_mode == "2D":
+            fig_correction_preview = interactive_vis.visualize_code_2d(
+                st.session_state.code,
+                error_qubits=error_qubits_preview,
+                error_types=error_types_preview,
+                syndrome_values=syndrome_dict_preview,
+                corrected_qubits=corrected_qubits_preview,
+                show_stabilizers=True,
+                show_connections=True
+            )
+        else:
+            fig_correction_preview = interactive_vis.visualize_code_3d(
+                st.session_state.code,
+                error_qubits=error_qubits_preview,
+                error_types=error_types_preview,
+                syndrome_values=syndrome_dict_preview,
+                corrected_qubits=corrected_qubits_preview,
+                show_stabilizers=True,
+                show_connections=True
+            )
+        st.plotly_chart(fig_correction_preview, use_container_width=True, key="correction_preview")
+        
+        st.markdown("""
+        **🎨 Correction Preview Guide:**
+        - 🔴 **Red qubits** = Qubits with errors (need correction)
+        - 🟢 **Green qubits** = Qubits that will be corrected (correction will be applied here)
+        - 🟡 **Gold stabilizers** = Error detected (these triggered the correction)
+        - ⚪ **White stabilizers** = No error detected
+        
+        **💡 Beginner Tip:** The correction circuit will apply gates (like X gates) to the green qubits to fix the errors!
+        """)
     
     if st.button("🔧 Apply Correction", use_container_width=True, type="primary"):
         correction_circuit = st.session_state.code.correct(st.session_state.syndrome)
@@ -1099,22 +1488,74 @@ def step_6_view_results():
     
     st.markdown("---")
     
-    # State vector visualizations
+    # Show final visualization with corrected state
+    st.markdown("### 📊 Final Code State Visualization")
+    final_view_mode = st.radio("View mode:", ["2D", "3D"], horizontal=True, key="final_view_mode")
+    
+    # Determine corrected qubits from correction circuit
+    correction_circuit = results['correction_circuit']
+    corrected_qubits_final = set()
+    for instruction in correction_circuit.data:
+        for q in instruction.qubits:
+            if hasattr(q, '_index'):
+                corrected_qubits_final.add(q._index)
+    
+    syndrome_dict_final = {i: st.session_state.syndrome[i] for i in range(len(st.session_state.syndrome))} if st.session_state.syndrome else {}
+    
+    if final_view_mode == "2D":
+        fig_final = interactive_vis.visualize_code_2d(
+            st.session_state.code,
+            error_qubits=set(),  # Errors are now corrected
+            error_types={},
+            syndrome_values=syndrome_dict_final,
+            corrected_qubits=corrected_qubits_final,
+            show_stabilizers=True,
+            show_connections=True
+        )
+    else:
+        fig_final = interactive_vis.visualize_code_3d(
+            st.session_state.code,
+            error_qubits=set(),  # Errors are now corrected
+            error_types={},
+            syndrome_values=syndrome_dict_final,
+            corrected_qubits=corrected_qubits_final,
+            show_stabilizers=True,
+            show_connections=True
+        )
+    st.plotly_chart(fig_final, use_container_width=True, key="final_viz")
+    
+    st.markdown("""
+    **🎨 Final State Guide:**
+    - 🟢 **Green qubits** = Successfully corrected! Errors have been fixed
+    - ⚪ **Light gray qubits** = Normal qubits (no errors throughout)
+    - 🟡 **Gold stabilizers** = Previously detected errors (now corrected)
+    - ⚪ **White stabilizers** = No errors detected
+        
+    **💡 Success!** If qubits are green, it means the correction worked and your quantum information is safe!
+    """)
+    
+    st.markdown("---")
+    
+    # State vector visualizations - compact but high quality
     st.markdown("### State Vector Evolution")
     
     col1, col2 = st.columns(2)
     
     with col1:
         fig1 = plot_state_vector_bars(results['error_state'], "After Error")
-        st.pyplot(fig1)
+        fig1.set_size_inches(5, 2.5)  # Smaller, more compact
+        plt.tight_layout()
+        st.pyplot(fig1, dpi=200)  # High DPI for quality
         plt.close()
     
     with col2:
         fig2 = plot_state_vector_bars(results['corrected_state'], "After Correction")
-        st.pyplot(fig2)
+        fig2.set_size_inches(5, 2.5)  # Smaller, more compact
+        plt.tight_layout()
+        st.pyplot(fig2, dpi=200)  # High DPI for quality
         plt.close()
     
-    # Fidelity gauge
+    # Fidelity gauge - compact but high quality
     st.markdown("---")
     st.markdown("### Fidelity Visualization")
     
@@ -1122,22 +1563,26 @@ def step_6_view_results():
     
     with col1:
         fig3 = plot_fidelity_gauge(results['fidelity_before'], "Fidelity (After Error)")
-        st.pyplot(fig3)
+        fig3.set_size_inches(4, 2.5)  # Compact size
+        plt.tight_layout()
+        st.pyplot(fig3, dpi=200)  # High DPI for quality
         plt.close()
     
     with col2:
         fig4 = plot_fidelity_gauge(results['fidelity_after'], "Fidelity (After Correction)")
-        st.pyplot(fig4)
+        fig4.set_size_inches(4, 2.5)  # Compact size
+        plt.tight_layout()
+        st.pyplot(fig4, dpi=200)  # High DPI for quality
         plt.close()
     
-    # Fidelity evolution chart
+    # Fidelity evolution chart - compact but high quality
     st.markdown("---")
     st.markdown("### Fidelity Evolution")
     
     stages = ["After Encoding", "After Error", "After Correction"]
     fidelities = [1.0, results['fidelity_before'], results['fidelity_after']]
     
-    fig5, ax = plt.subplots(figsize=(10, 5))
+    fig5, ax = plt.subplots(figsize=(7, 3.5))  # Compact chart
     colors = ['green' if f > 0.9 else 'orange' if f > 0.5 else 'red' for f in fidelities]
     bars = ax.bar(stages, fidelities, color=colors, alpha=0.7, edgecolor='black')
     
@@ -1145,16 +1590,16 @@ def step_6_view_results():
         height = bar.get_height()
         ax.text(bar.get_x() + bar.get_width()/2., height,
                f'{fid:.3f}',
-               ha='center', va='bottom', fontsize=12, fontweight='bold')
+               ha='center', va='bottom', fontsize=11, fontweight='bold')
     
-    ax.set_ylabel('Fidelity', fontsize=12)
-    ax.set_title('Fidelity at Each Stage', fontsize=14, fontweight='bold')
+    ax.set_ylabel('Fidelity', fontsize=11)
+    ax.set_title('Fidelity at Each Stage', fontsize=13, fontweight='bold')
     ax.set_ylim([0, 1.1])
     ax.grid(True, alpha=0.3, axis='y')
     ax.axhline(y=1.0, color='green', linestyle='--', alpha=0.5, label='Perfect Fidelity')
-    ax.legend()
+    ax.legend(fontsize=10)
     plt.tight_layout()
-    st.pyplot(fig5)
+    st.pyplot(fig5, dpi=200)  # High DPI for quality
     plt.close()
     
     # Circuits
@@ -1172,17 +1617,21 @@ def step_6_view_results():
         
         # Use container to center and constrain the image
         with st.container():
-            # Create responsive circuit visualization with high quality, no title
+            # Create compact circuit visualization with high quality
             fig = plot_circuit(
                 correction_circuit, 
                 "Correction Circuit", 
-                figsize_scale=0.5, 
-                max_width=10,
+                figsize_scale=0.35,  # Even smaller scale for compact display
+                max_width=7,  # Smaller max width
                 responsive=True,
-                show_title=False  # No title on image
+                show_title=False
             )
-            # Use st.pyplot with use_container_width to make it responsive
-            st.pyplot(fig, use_container_width=True)
+            # Compact display with high quality
+            if hasattr(fig, 'set_size_inches'):
+                current_size = fig.get_size_inches()
+                fig.set_size_inches(min(current_size[0], 7), min(current_size[1], 3))
+            plt.tight_layout(pad=0.5)
+            st.pyplot(fig, dpi=200)  # High DPI for quality
             plt.close(fig)
         
         st.markdown("---")
@@ -1203,17 +1652,21 @@ def step_6_view_results():
         
         # Use container to center and constrain the image
         with st.container():
-            # Create responsive circuit visualization with high quality, no title
+            # Create responsive circuit visualization with high quality, no title, smaller size
             fig = plot_circuit(
                 decoding_circuit, 
                 "Decoding Circuit", 
-                figsize_scale=0.5, 
-                max_width=10,
+                figsize_scale=0.4,  # Smaller scale
+                max_width=8,  # Smaller max width
                 responsive=True,
                 show_title=False  # No title on image
             )
-            # Use st.pyplot with use_container_width to make it responsive
-            st.pyplot(fig, use_container_width=True)
+            # Compact display with high quality
+            if hasattr(fig, 'set_size_inches'):
+                current_size = fig.get_size_inches()
+                fig.set_size_inches(min(current_size[0], 7), min(current_size[1], 3))
+            plt.tight_layout(pad=0.5)
+            st.pyplot(fig, dpi=200)  # High DPI for quality
             plt.close(fig)
         
         st.markdown("---")
@@ -1238,8 +1691,8 @@ def step_6_view_results():
         with st.container():
             # For longer circuits, use smaller scale and enable folding
             circuit_size = full_circuit.size()
-            scale_factor = 0.35 if circuit_size > 20 else (0.4 if circuit_size > 15 else 0.45)
-            max_w = 11 if circuit_size > 25 else (10 if circuit_size > 15 else 9)
+            scale_factor = 0.3 if circuit_size > 20 else (0.35 if circuit_size > 15 else 0.4)  # Smaller
+            max_w = 8 if circuit_size > 25 else (7 if circuit_size > 15 else 7)  # Smaller max width
             
             fig = plot_circuit(
                 full_circuit, 
@@ -1249,8 +1702,12 @@ def step_6_view_results():
                 responsive=True,
                 show_title=False  # No title on image
             )
-            # Use st.pyplot with use_container_width for responsiveness
-            st.pyplot(fig, use_container_width=True)
+            # Compact display with high quality
+            if hasattr(fig, 'set_size_inches'):
+                current_size = fig.get_size_inches()
+                fig.set_size_inches(min(current_size[0], 7), min(current_size[1], 4))
+            plt.tight_layout(pad=0.5)
+            st.pyplot(fig, dpi=200)  # High DPI for quality
             plt.close(fig)
         
         st.markdown("---")

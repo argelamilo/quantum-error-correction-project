@@ -10,6 +10,8 @@ from .qec_codes import BitFlipCode, PerfectCode
 from .error_injection import ErrorInjector, ErrorType
 from .visualizer import QECVisualizer
 from .backend import QECBackend
+from .spatial_layout import SpatialLayout, BitFlipCodeLayout, PerfectCodeLayout, get_layout_for_code
+from .interactive_visualizer import InteractiveVisualizer
 
 __all__ = [
     "BitFlipCode",
@@ -18,5 +20,10 @@ __all__ = [
     "ErrorType",
     "QECVisualizer",
     "QECBackend",
+    "SpatialLayout",
+    "BitFlipCodeLayout",
+    "PerfectCodeLayout",
+    "get_layout_for_code",
+    "InteractiveVisualizer",
 ]
 
