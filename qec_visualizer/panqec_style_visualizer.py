@@ -231,7 +231,7 @@ class PanQECStyleVisualizer:
                         x=[q_pos[0], s_pos[0]],
                         y=[q_pos[1], s_pos[1]],
                         mode='lines',
-                        line=dict(color='rgba(150, 150, 150, 0.4)', width=2),
+                        line=dict(color='rgba(80, 80, 80, 0.7)', width=3),  # Darker, more visible connections
                         showlegend=False,
                         hoverinfo='skip'
                     ))
@@ -325,9 +325,9 @@ class PanQECStyleVisualizer:
         # Update layout (PanQEC style: dark background)
         fig.update_layout(
             title='',
-            xaxis=dict(title='', showgrid=True, gridcolor='rgba(200, 200, 200, 0.2)', zeroline=False),
-            yaxis=dict(title='', showgrid=True, gridcolor='rgba(200, 200, 200, 0.2)', zeroline=False, scaleanchor='x', scaleratio=1),
-            plot_bgcolor='white',
+            xaxis=dict(title='', showgrid=True, gridcolor='rgba(120, 120, 120, 0.5)', zeroline=False, zerolinecolor='rgba(100, 100, 100, 0.8)'),
+            yaxis=dict(title='', showgrid=True, gridcolor='rgba(120, 120, 120, 0.5)', zeroline=False, scaleanchor='x', scaleratio=1, zerolinecolor='rgba(100, 100, 100, 0.8)'),
+            plot_bgcolor='rgba(250, 250, 250, 1)',  # Slightly off-white
             paper_bgcolor='white',
             hovermode='closest',
             showlegend=True,
@@ -394,7 +394,7 @@ class PanQECStyleVisualizer:
                         y=[q_pos[1], s_pos[1]],
                         z=[q_pos[2], s_pos[2]],
                         mode='lines',
-                        line=dict(color='rgba(150, 150, 150, 0.3)', width=3),
+                        line=dict(color='rgba(80, 80, 80, 0.6)', width=4),  # Darker, more visible connections
                         showlegend=False,
                         hoverinfo='skip'
                     ))
@@ -494,10 +494,10 @@ class PanQECStyleVisualizer:
         fig.update_layout(
             title='',
             scene=dict(
-                xaxis=dict(title='X', backgroundcolor='rgba(16, 37, 66, 0.05)', gridcolor='rgba(200, 200, 200, 0.2)'),
-                yaxis=dict(title='Y', backgroundcolor='rgba(16, 37, 66, 0.05)', gridcolor='rgba(200, 200, 200, 0.2)'),
-                zaxis=dict(title='Z', backgroundcolor='rgba(16, 37, 66, 0.05)', gridcolor='rgba(200, 200, 200, 0.2)'),
-                bgcolor='rgba(240, 240, 240, 1)',
+                xaxis=dict(title='X', backgroundcolor='rgba(240, 240, 240, 1)', gridcolor='rgba(100, 100, 100, 0.5)', showgrid=True),
+                yaxis=dict(title='Y', backgroundcolor='rgba(240, 240, 240, 1)', gridcolor='rgba(100, 100, 100, 0.5)', showgrid=True),
+                zaxis=dict(title='Z', backgroundcolor='rgba(240, 240, 240, 1)', gridcolor='rgba(100, 100, 100, 0.5)', showgrid=True),
+                bgcolor='rgba(245, 245, 245, 1)',  # Slightly darker background
                 aspectmode='data'
             ),
             plot_bgcolor='white',

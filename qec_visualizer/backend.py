@@ -277,6 +277,10 @@ class QECBackend:
         # (up to decoding)
         success_probability = abs(initial_state.inner(final_state)) ** 2
         
+        # Check if correction is imperfect (fidelity after correction is low)
+        is_imperfect = fidelity_after < 0.99
+        correction_perfect = fidelity_after > 0.99
+        
         return {
             'initial_state': initial_state,
             'error_state': error_state,
@@ -286,7 +290,9 @@ class QECBackend:
             'fidelity_before': fidelity_before,
             'fidelity_after': fidelity_after,
             'success_probability': success_probability,
-            'success': success_probability > 0.99  # Threshold for success
+            'success': correction_perfect,
+            'is_imperfect': is_imperfect,  # True if correction didn't fully recover the state
+            'correction_perfect': correction_perfect  # True if correction was successful
         }
     
     def calculate_error_rate(

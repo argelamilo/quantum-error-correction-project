@@ -106,6 +106,36 @@ st.markdown("""
         border-radius: 3px;
         font-weight: bold;
     }
+    .warning-box {
+        background: linear-gradient(135deg, #fff9c4 0%, #fff59d 100%);
+        padding: 1rem;
+        border-radius: 8px;
+        border-left: 5px solid #f57f17;
+        margin: 1rem 0;
+        color: #1a1a1a;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .warning-box h3 {
+        color: #e65100;
+        margin-top: 0;
+        margin-bottom: 0.5rem;
+    }
+    .warning-box table {
+        width: 100%;
+        margin-top: 0.5rem;
+        border-collapse: collapse;
+    }
+    .warning-box table th,
+    .warning-box table td {
+        padding: 0.5rem;
+        text-align: left;
+        border-bottom: 1px solid #f57f17;
+    }
+    .warning-box table th {
+        background-color: rgba(245, 127, 23, 0.2);
+        font-weight: bold;
+        color: #e65100;
+    }
     .metric-card {
         background-color: white;
         padding: 1rem;
@@ -1386,6 +1416,18 @@ def step_5_apply_correction():
         **💡 Beginner Tip:** The correction circuit will apply gates (like X gates) to the green qubits to fix the errors!
         """)
     
+    # Show warning for rotation errors (imperfect correction expected)
+    if st.session_state.last_error_type and "Rotation" in st.session_state.last_error_type:
+        st.markdown("""
+        <div class="warning-box">
+            <h3>⚠️ Note: Rotation Error Detected</h3>
+            <p><strong>Rotation errors (Rx, Ry, Rz) may not be perfectly correctable.</strong></p>
+            <p>Rotation errors are continuous errors, while stabilizer codes are designed for discrete Pauli errors (X, Y, Z). 
+            The correction will attempt to approximate the error, but perfect recovery may not be possible.</p>
+            <p><strong>Expected behavior:</strong> Fidelity after correction may be less than 1.0, which is normal for rotation errors.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
     if st.button("🔧 Apply Correction", use_container_width=True, type="primary"):
         correction_circuit = st.session_state.code.correct(st.session_state.syndrome)
         
@@ -1481,10 +1523,41 @@ def step_6_view_results():
         )
     
     # Success indicator
+    is_imperfect = results.get('is_imperfect', results['fidelity_after'] < 0.99)
+    error_type = st.session_state.last_error_type or "Unknown"
+    
     if results['fidelity_after'] > 0.99:
         st.markdown('<div class="success-box"><h3>✅ Success! Error has been corrected!</h3></div>', unsafe_allow_html=True)
     else:
-        st.warning("⚠️ Correction was not perfect. This may be expected for some error types.")
+        # Show detailed warning table for imperfect corrections
+        st.markdown("""
+        <div class="warning-box">
+            <h3>⚠️ Imperfect Correction Detected</h3>
+            <p><strong>The error correction did not fully recover the quantum state.</strong> This may be expected for certain error types.</p>
+            <table>
+                <tr>
+                    <th>Error Type</th>
+                    <th>Fidelity After Correction</th>
+                    <th>Expected Behavior</th>
+                </tr>
+                <tr>
+                    <td>{error_type}</td>
+                    <td>{fidelity:.4f}</td>
+                    <td>{explanation}</td>
+                </tr>
+            </table>
+            <p style="margin-top: 0.75rem; font-size: 0.9em;"><strong>Why this happens:</strong></p>
+            <ul style="margin-top: 0.25rem; padding-left: 1.5rem;">
+                <li><strong>Rotation errors (Rx, Ry, Rz):</strong> These are continuous errors, not discrete Pauli errors. Stabilizer codes are designed for discrete errors (X, Y, Z), so rotation errors can only be approximated, not perfectly corrected.</li>
+                <li><strong>Depolarizing errors:</strong> Probabilistic mixture of errors - correction success depends on which error actually occurred.</li>
+                <li><strong>Syndrome lookup limitations:</strong> Some syndromes may not have complete corrections mapped in the lookup table.</li>
+            </ul>
+        </div>
+        """.format(
+            error_type=error_type,
+            fidelity=results['fidelity_after'],
+            explanation="Rotation errors cannot be perfectly corrected by stabilizer codes" if "Rotation" in error_type else "Partial correction expected for this error type"
+        ), unsafe_allow_html=True)
     
     st.markdown("---")
     
@@ -1621,17 +1694,17 @@ def step_6_view_results():
             fig = plot_circuit(
                 correction_circuit, 
                 "Correction Circuit", 
-                figsize_scale=0.35,  # Even smaller scale for compact display
-                max_width=7,  # Smaller max width
+                figsize_scale=0.25,  # Much smaller scale for compact display
+                max_width=5,  # Smaller max width
                 responsive=True,
                 show_title=False
             )
             # Compact display with high quality
             if hasattr(fig, 'set_size_inches'):
                 current_size = fig.get_size_inches()
-                fig.set_size_inches(min(current_size[0], 7), min(current_size[1], 3))
-            plt.tight_layout(pad=0.5)
-            st.pyplot(fig, dpi=200)  # High DPI for quality
+                fig.set_size_inches(min(current_size[0], 5), min(current_size[1], 2.5))
+            plt.tight_layout(pad=0.3)
+            st.pyplot(fig, dpi=250)  # Even higher DPI for quality when smaller
             plt.close(fig)
         
         st.markdown("---")
@@ -1656,17 +1729,17 @@ def step_6_view_results():
             fig = plot_circuit(
                 decoding_circuit, 
                 "Decoding Circuit", 
-                figsize_scale=0.4,  # Smaller scale
-                max_width=8,  # Smaller max width
+                figsize_scale=0.28,  # Much smaller scale
+                max_width=5.5,  # Smaller max width
                 responsive=True,
                 show_title=False  # No title on image
             )
             # Compact display with high quality
             if hasattr(fig, 'set_size_inches'):
                 current_size = fig.get_size_inches()
-                fig.set_size_inches(min(current_size[0], 7), min(current_size[1], 3))
-            plt.tight_layout(pad=0.5)
-            st.pyplot(fig, dpi=200)  # High DPI for quality
+                fig.set_size_inches(min(current_size[0], 5.5), min(current_size[1], 2.5))
+            plt.tight_layout(pad=0.3)
+            st.pyplot(fig, dpi=250)  # Even higher DPI for quality when smaller
             plt.close(fig)
         
         st.markdown("---")
@@ -1691,8 +1764,8 @@ def step_6_view_results():
         with st.container():
             # For longer circuits, use smaller scale and enable folding
             circuit_size = full_circuit.size()
-            scale_factor = 0.3 if circuit_size > 20 else (0.35 if circuit_size > 15 else 0.4)  # Smaller
-            max_w = 8 if circuit_size > 25 else (7 if circuit_size > 15 else 7)  # Smaller max width
+            scale_factor = 0.22 if circuit_size > 20 else (0.25 if circuit_size > 15 else 0.28)  # Much smaller
+            max_w = 5.5 if circuit_size > 25 else (5 if circuit_size > 15 else 5)  # Smaller max width
             
             fig = plot_circuit(
                 full_circuit, 
@@ -1705,9 +1778,9 @@ def step_6_view_results():
             # Compact display with high quality
             if hasattr(fig, 'set_size_inches'):
                 current_size = fig.get_size_inches()
-                fig.set_size_inches(min(current_size[0], 7), min(current_size[1], 4))
-            plt.tight_layout(pad=0.5)
-            st.pyplot(fig, dpi=200)  # High DPI for quality
+                fig.set_size_inches(min(current_size[0], 5.5), min(current_size[1], 3))
+            plt.tight_layout(pad=0.3)
+            st.pyplot(fig, dpi=250)  # Even higher DPI for quality when smaller
             plt.close(fig)
         
         st.markdown("---")
