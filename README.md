@@ -17,9 +17,7 @@ This project implements a comprehensive quantum error correction (QEC) visualiza
 - Serxhio Dosku
 - Argela Milo
 
-## Grading Scheme
-
-**Balanced** - A comprehensive project demonstrating understanding of quantum error correction fundamentals with practical implementation and visualization.
+## Grading Scheme - **Balanced** 
 
 ## Features
 
