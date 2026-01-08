@@ -1,4 +1,4 @@
-# Quantum Error Correction Learning Tool (with visualizations)
+# Quantum Error Correction Learning Tool
 
 An interactive, educational visualization tool that demonstrates quantum error correction codes, allowing users to inject errors, observe error detection, and visualize the correction process in real-time.
 
