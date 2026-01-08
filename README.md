@@ -117,76 +117,7 @@ The web frontend guides you through a complete quantum error correction workflow
 **Step 6: View Results** - Examine comprehensive results including fidelity metrics (before and after correction), state vector probability distributions, 2D/3D visualizations showing corrected qubits in green, and success indicators confirming whether the error was successfully corrected. Throughout the process, the sidebar shows your progress, and each step includes educational explanations and visualizations to help you understand quantum error correction principles.
 
 
-The notebook provides:
-- Interactive widgets to control error types, locations, and probabilities
-- Real-time visualization updates
-- Step-by-step QEC process visualization
-- Fidelity analysis for different error types
-
-### Programmatic Usage
-
-```python
-from qec_visualizer import BitFlipCode, ErrorInjector, ErrorType, QECVisualizer, QECBackend
-
-# Initialize components
-code = BitFlipCode()
-error_injector = ErrorInjector(n_qubits=3)
-visualizer = QECVisualizer()
-backend = QECBackend()
-
-# Encode logical |1⟩
-encoding_circuit = code.encode(logical_state=1)
-
-# Inject bit-flip error on qubit 0
-error_circuit = error_injector.inject_error(
-    encoding_circuit,
-    ErrorType.BIT_FLIP,
-    qubit=0,
-    error_probability=1.0
-)
-
-# Measure syndrome
-syndrome_circuit = code.syndrome_measurement()
-syndrome = backend.extract_syndrome(error_circuit, syndrome_circuit)
-
-# Apply correction
-correction_circuit = code.correct(syndrome)
-
-# Visualize
-visualizer.plot_circuit_diagram(encoding_circuit, title="Encoding Circuit")
-
-# Full simulation
-result = backend.simulate_full_qec_process(
-    encoding_circuit,
-    error_circuit,
-    syndrome_circuit,
-    correction_circuit,
-    code.decode()
-)
-
-print(f"Fidelity before correction: {result['fidelity_before']:.4f}")
-print(f"Fidelity after correction: {result['fidelity_after']:.4f}")
-```
-
-## Project Structure
-
-```
-quantum-error-correction-project/
-├── qec_visualizer/          # Main package
-│   ├── __init__.py          # Package initialization
-│   ├── qec_codes.py         # QEC code implementations
-│   ├── error_injection.py   # Error injection system
-│   ├── backend.py           # Backend logic and simulations
-│   └── visualizer.py        # Visualization components
-├── examples/                # Example scripts and notebooks
-│   ├── basic_demo.py        # Basic demonstration script
-│   └── interactive_demo.ipynb # Interactive Jupyter notebook
-├── requirements.txt         # Python dependencies
-├── .gitignore              # Git ignore file
-└── README.md               # This file
-```
-
-## Normal Workflow
+## Normal Workflow (Shorter Version)
 
 1. **Code Selection**: Choose between 3-qubit bit-flip code or 5-qubit perfect code
 2. **Encoding**: Encode a logical qubit (|0⟩ or |1⟩) into physical qubits
@@ -261,7 +192,7 @@ code = BitFlipCode()
 # Decode → |1⟩ ✓
 ```
 
-### Scenario 2: Rx Gate Error (Professor Feedback)
+### Scenario 2: Rx Gate Error
 
 ```python
 code = BitFlipCode()
@@ -292,33 +223,10 @@ code = PerfectCode()
 - **ipywidgets** (≥8.0.0): Interactive widgets for Jupyter
 - **scipy** (≥1.10.0): Scientific computing
 
-## Future Enhancements
-
-Potential improvements for future work:
-
-- Additional QEC codes (Shor code, Steane code, etc.)
-- Real hardware integration (IBM Quantum, etc.)
-- More sophisticated error models
-- Performance benchmarking
-- Web-based interface
-- Educational tutorials and explanations
-- Error threshold calculations
-
-## References
-
-- Nielsen & Chuang, "Quantum Computation and Quantum Information"
-- Qiskit Textbook: Quantum Error Correction
-- Various QEC code implementations and research papers
 
 ## License
 
 This project is created for educational purposes as part of a quantum computing course.
-
-## Contact
-
-For questions or feedback, please contact the project members:
-- Serxhio Dosku
-- Argela Milo
 
 ---
 
