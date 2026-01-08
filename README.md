@@ -94,63 +94,22 @@ Or use the convenience scripts:
 - **Linux/Mac:** `./run_frontend.sh`
 
 The web frontend provides:
-- 🎨 Beautiful, modern user interface
 - 📊 Real-time visualizations (circuit diagrams, state vectors, fidelity charts)
 - 🎯 Step-by-step guided workflow
 - 💡 Interactive widgets and clear explanations
 - 📈 Fidelity tracking and progress indicators
-- 🎓 Perfect for beginners and educational use
 
-See [FRONTEND_GUIDE.md](FRONTEND_GUIDE.md) for detailed instructions.
 
-### Recommended: Interactive Tool (Easiest to Understand)
+## Step-by-Step Usage Guide
 
-For the clearest, step-by-step experience:
+The web frontend guides you through a complete quantum error correction workflow in six intuitive steps. 
+**Step 1: Select Code** - Choose between the 3-qubit Bit-Flip Code (beginner-friendly) or the 5-qubit Perfect Code (advanced), with interactive 2D/3D previews showing the qubit and stabilizer structure. 
+**Step 2: Encode** - Select a logical qubit state (|0⟩ or |1⟩) and click "Encode Qubit" to create the encoded state, visualizing how your logical information is distributed across multiple physical qubits. 
+**Step 3: Inject Error** - Choose an error type (bit-flip, phase-flip, rotation errors, etc.), select which qubit to affect, and optionally set an error probability, then click "Inject Error" to simulate quantum noise. 
+**Step 4: Measure Syndrome** - Click "Measure Syndrome" to detect the error location; the interface displays the syndrome bit pattern and highlights which stabilizers detected the error in the visualization. 
+**Step 5: Apply Correction** - Review the detected syndrome and click "Apply Correction" to automatically fix the error based on the syndrome lookup table. 
+**Step 6: View Results** - Examine comprehensive results including fidelity metrics (before and after correction), state vector probability distributions, 2D/3D visualizations showing corrected qubits in green, and success indicators confirming whether the error was successfully corrected. Throughout the process, the sidebar shows your progress, and each step includes educational explanations and visualizations to help you understand quantum error correction principles.
 
-```bash
-python examples/interactive_qec_tool.py
-```
-
-This interactive tool:
-- Guides you through each step with clear explanations
-- Lets you choose error types and locations
-- Shows state vectors and fidelity at each stage
-- Explains what's happening in plain language
-
-### Simple Demo (Quick Overview)
-
-For a quick, clear demonstration:
-
-```bash
-python examples/simple_demo.py
-```
-
-This shows a complete QEC process with:
-- Clear step-by-step output
-- State vector visualizations (text-based)
-- Fidelity progress bars
-- Easy-to-understand explanations
-
-### Advanced: Basic Demo Script
-
-For multiple examples:
-
-```bash
-python examples/basic_demo.py
-```
-
-This will demonstrate:
-- 3-qubit bit-flip code with bit-flip error
-- Rx gate error (as per professor feedback)
-- 5-qubit perfect code with phase-flip error
-
-### Interactive Jupyter Notebook
-
-For an interactive experience, use the Jupyter notebook:
-
-```bash
-jupyter notebook examples/interactive_demo.ipynb
-```
 
 The notebook provides:
 - Interactive widgets to control error types, locations, and probabilities
