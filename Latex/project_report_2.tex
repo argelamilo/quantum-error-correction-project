@@ -1,0 +1,659 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{fancyhdr}
+\usepackage{tocloft}
+
+% Page style
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small Quantum Error Correction Learning Tool}
+\fancyhead[R]{\small Project Report}
+\fancyfoot[C]{\thepage}
+
+% Title formatting
+\titleformat{\section}
+{\Large\bfseries}
+{\thesection}{1em}{}
+[\titlerule]
+
+\titleformat{\subsection}
+{\large\bfseries}
+{\thesubsection}{1em}{}
+
+\titleformat{\subsubsection}
+{\normalsize\bfseries}
+{\thesubsubsection}{1em}{}
+
+% Code listing style
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true,
+    frame=single,
+    numbers=left,
+    numberstyle=\tiny,
+    backgroundcolor=\color{gray!10},
+    language=Python
+}
+
+% Hyperref setup
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={Quantum Error Correction Learning Tool},
+    pdfauthor={Serxhio Dosku}
+}
+
+% Title information
+\title{
+    \vspace{2cm}
+    \Large\textbf{Quantum Error Correction Learning Tool}\\
+    \large an Educational Tool for Visualizing Error Correction Codes
+    \vspace{0.5cm}
+}
+
+\author{
+    Serxhio Dosku\\
+    \small Quantum Computation and Error Correction, Fall Semester 2025\\
+    \small Department of Mathematics and Computer Science\\
+    \small University of Basel\\
+    \small Basel, Switzerland
+}
+
+
+\begin{document}
+
+\vspace{3cm}
+
+\maketitle
+
+\vspace{2cm}
+\begin{abstract}
+Quantum error correction (QEC) is a fundamental requirement for practical quantum computing, addressing the inherent fragility of quantum information. This project implements and analyzes two fundamental QEC codes: the 3-qubit bit-flip code and the 5-qubit perfect code. We develop a comprehensive visualization tool that demonstrates the complete error correction workflow, from encoding logical qubits through error detection, syndrome measurement, correction, and decoding. The implementation supports multiple error models including discrete Pauli errors (bit-flip, phase-flip, combined) and continuous rotation errors. Through quantitative fidelity analysis, we validate the theoretical predictions and demonstrate the capabilities and limitations of each code. Our tool provides an accessible educational platform for understanding QEC principles while maintaining scientific rigor in implementation and analysis.
+\end{abstract}
+
+\newpage
+\tableofcontents
+\newpage
+
+\section{Introduction}
+
+\subsection{Problem Statement and Motivation}
+
+Quantum computers promise revolutionary computational capabilities, from factoring large numbers to simulating complex quantum systems. However, quantum information is extraordinarily fragile. Unlike classical bits that exist in well-defined 0 or 1 states, quantum bits (qubits) exist in superpositions $\alpha|0\rangle + \beta|1\rangle$, making them extremely susceptible to environmental noise, decoherence, and operational errors.
+
+The challenge of quantum error correction differs fundamentally from classical error correction in several critical ways:
+
+\begin{enumerate}
+    \item \textbf{No-cloning theorem:} Quantum information cannot be copied, precluding the simple redundancy schemes that work for classical systems. This fundamental constraint, means we cannot simply duplicate qubits to protect information.
+    
+    \item \textbf{Continuous error space:} While classical errors are discrete (bit-flips), quantum errors can be continuous rotations or general unitary transformations, creating an infinite-dimensional error space.
+    
+    \item \textbf{Measurement disturbance:} Direct measurement of quantum states collapses superpositions, destroying the very information we seek to protect. Error detection must therefore use indirect methods through ancilla qubits and stabilizer measurements.
+    
+    \item \textbf{Quantum gate errors:} Unlike classical gates which are typically deterministic, quantum gates are subject to noise, making even error correction operations themselves prone to errors (necessitating fault-tolerant protocols).
+\end{enumerate}
+
+These constraints necessitate sophisticated error correction codes that encode logical qubits into multiple physical qubits while preserving quantum information through carefully designed stabilizer operators. Without effective error correction, practical quantum computing remains impossible.
+
+\subsection{Project Goals and Scope}
+
+This project aims to bridge the gap between theoretical understanding and practical implementation of quantum error correction. Our primary objectives are:
+
+\begin{enumerate}
+    \item \textbf{Implementation:} Develop complete, functional implementations of two fundamental QEC codes—the 3-qubit bit-flip code and the 5-qubit perfect code—with full encoding, syndrome measurement, correction, and decoding capabilities.
+    
+    \item \textbf{Visualization:} Create an interactive visualization tool that demonstrates the complete QEC workflow, making abstract quantum concepts tangible through visual representation.
+    
+    \item \textbf{Analysis:} Perform quantitative analysis of error correction effectiveness using fidelity metrics, validating theoretical predictions and exploring practical limitations.
+    
+    \item \textbf{Education:} Provide an accessible educational platform that enables both beginners and advanced users to explore QEC principles through hands-on experimentation.
+\end{enumerate}
+
+Our implementation focuses on single-qubit error correction, which forms the foundation for more complex error correction schemes. The 3-qubit bit-flip code serves as the simplest example, while the 5-qubit perfect code demonstrates the smallest code capable of correcting arbitrary single-qubit errors. This scope is appropriate for a course project, providing comprehensive understanding of QEC fundamentals while remaining computationally tractable.
+
+\subsection{Report Structure}
+
+This report follows a standard research paper structure: Section 2 presents the theoretical background necessary to understand quantum error correction; Section 3 describes our implementation methodology and architecture; Section 4 presents results and quantitative analysis; Section 5 discusses limitations and future directions; and Section 6 provides concluding remarks.
+
+\section{Theoretical Background}
+
+\subsection{Quantum States and the Need for Error Correction}
+
+A single qubit state is described by a complex superposition:
+
+\begin{equation}
+|\psi\rangle = \alpha|0\rangle + \beta|1\rangle
+\end{equation}
+
+where $\alpha, \beta \in \mathbb{C}$ satisfy the normalization condition $|\alpha|^2 + |\beta|^2 = 1$. The state exists in a two-dimensional Hilbert space, and any unitary operation or measurement can alter this state. Environmental interactions, imperfect gate operations, and decoherence introduce errors that corrupt quantum information.
+
+Quantum errors can be classified into discrete Pauli errors, which form the foundation of stabilizer codes. The three Pauli operators are:
+
+\begin{align}
+X &= \begin{pmatrix} 0 & 1 \\ 1 & 0 \end{pmatrix} \quad \text{(Bit-flip)} \\
+Z &= \begin{pmatrix} 1 & 0 \\ 0 & -1 \end{pmatrix} \quad \text{(Phase-flip)} \\
+Y &= iXZ = \begin{pmatrix} 0 & -i \\ i & 0 \end{pmatrix} \quad \text{(Combined)}
+\end{align}
+
+These operators form a basis for single-qubit errors: any single-qubit error can be expressed as a linear combination of $X$, $Y$, and $Z$ operators. The $X$ operator flips the computational basis ($|0\rangle \leftrightarrow |1\rangle$), the $Z$ operator flips the phase ($|+\rangle \leftrightarrow |-\rangle$ where $|\pm\rangle = (|0\rangle \pm |1\rangle)/\sqrt{2}$), and $Y$ combines both effects.
+
+\subsection{Stabilizer Formalism}
+
+Stabilizer codes, first developed by Gottesman, provide a powerful framework for quantum error correction. A stabilizer $S$ is an operator that leaves encoded logical states unchanged:
+
+\begin{equation}
+S|\psi_L\rangle = |\psi_L\rangle
+\end{equation}
+
+For an $[n,k]$ quantum error correction code that encodes $k$ logical qubits into $n$ physical qubits, we require $n-k$ independent stabilizer generators. The stabilizers generate an Abelian subgroup of the Pauli group, and the code space is the simultaneous $+1$ eigenspace of all stabilizers.
+
+Errors that anti-commute with stabilizers can be detected through syndrome measurement. The syndrome is a classical bitstring obtained by measuring each stabilizer, indicating which stabilizers were violated. This syndrome uniquely identifies the error (up to equivalence classes of errors that have the same effect on the code space).
+
+\subsection{3-Qubit Bit-Flip Code}
+
+The 3-qubit bit-flip code, introduced by Shor, is the simplest quantum error correction code. It encodes one logical qubit into three physical qubits:
+
+\begin{align}
+|0_L\rangle &= |000\rangle \\
+|1_L\rangle &= |111\rangle
+\end{align}
+
+The code uses two stabilizer generators: $Z_0Z_1$ and $Z_1Z_2$, which measure the parity between adjacent qubit pairs. These stabilizers detect bit-flip ($X$) errors because $X$ errors anti-commute with $Z$ measurements.
+
+The syndrome measurement yields a 2-bit syndrome:
+\begin{itemize}
+    \item $[0,0]$: No error detected
+    \item $[1,0]$: Error on qubit 0 (first parity violated)
+    \item $[0,1]$: Error on qubit 2 (second parity violated)
+    \item $[1,1]$: Error on qubit 1 (both parities violated)
+\end{itemize}
+
+The encoding circuit simply copies the logical qubit: if the logical state is $|1\rangle$, apply $X$ to qubit 0, then CNOT gates from qubit 0 to qubits 1 and 2. This creates the repetition code structure.
+
+\textbf{Limitations:} This code only corrects $X$ errors. Phase-flip ($Z$) errors commute with the $Z$-stabilizers and are therefore undetectable. The code has distance 3 (can detect 2 errors, correct 1), but only for the specific error type it's designed for.
+
+\subsection{5-Qubit Perfect Code}
+
+The 5-qubit perfect code, discovered independently by Laflamme et al. \cite{laflamme1996} and Bennett et al. \cite{bennett1996}, is remarkable: it is the smallest quantum code capable of correcting arbitrary single-qubit errors. It achieves the theoretical lower bound given by the quantum Hamming bound.
+
+The code encodes one logical qubit into five physical qubits and uses four stabilizer generators, yielding a 4-bit syndrome that uniquely identifies any single-qubit Pauli error (15 non-trivial error possibilities plus the no-error case = 16 total syndromes).
+
+The stabilizer generators for the 5-qubit code are:
+\begin{align}
+S_1 &= X_1 Z_2 Z_3 X_4 \\
+S_2 &= X_2 Z_3 Z_4 X_0 \\
+S_3 &= X_3 Z_4 Z_0 X_1 \\
+S_4 &= X_4 Z_0 Z_1 X_2
+\end{align}
+
+Each stabilizer is a product of $X$ and $Z$ operators, enabling detection of all Pauli error types. The encoding circuit involves Hadamard gates and controlled-$Z$ operations to create the necessary entanglement structure.
+
+This code represents a significant improvement over the bit-flip code, as it corrects \emph{any} single-qubit Pauli error ($X$, $Y$, or $Z$) on any of the five qubits, making it truly universal for single-error correction.
+
+\subsection{Fidelity as a Performance Metric}
+
+Fidelity provides a quantitative measure of similarity between quantum states. For two density matrices $\rho$ and $\sigma$, the fidelity is defined as:
+
+\begin{equation}
+F(\rho, \sigma) = \left(\text{Tr}\sqrt{\sqrt{\rho}\sigma\sqrt{\rho}}\right)^2
+\end{equation}
+
+For pure states $|\psi\rangle$ and $|\phi\rangle$, this simplifies to:
+
+\begin{equation}
+F = |\langle\psi|\phi\rangle|^2
+\end{equation}
+
+Fidelity ranges from 0 (orthogonal states) to 1 (identical states). In our implementation, we compute fidelity between the ideal encoded state and the state after error injection (before correction) and after correction (after decoding). Perfect error correction should restore fidelity to 1.0, while imperfect correction or uncorrectable errors result in lower fidelity values.
+
+\section{Methods and Implementation}
+
+\subsection{System Architecture}
+
+Our implementation follows a modular architecture with clear separation of concerns, enabling extensibility and maintainability. The system consists of four main components:
+
+\begin{enumerate}
+    \item \textbf{QEC Codes Module} (\texttt{qec\_codes.py}): Implements the abstract \texttt{QECCode} base class and concrete implementations for \texttt{BitFlipCode} and \texttt{PerfectCode}. Each code provides methods for encoding, syndrome measurement, correction, and decoding.
+    
+    \item \textbf{Error Injection Module} (\texttt{error\_injection.py}): Handles injection of various error types (bit-flip, phase-flip, depolarizing, rotation errors) into quantum circuits. Supports probabilistic error injection and custom parameters.
+    
+    \item \textbf{Backend Module} (\texttt{backend.py}): Performs state vector calculations using Qiskit's quantum simulation, extracts syndromes from measurement results, computes fidelity between states, and orchestrates the complete QEC workflow.
+    
+    \item \textbf{Visualization Interface} (\texttt{frontend.py}, \texttt{visualizer.py}): Provides interactive web-based interface using Streamlit, along with programmatic visualization tools for circuits, state vectors, and 3D spatial representations.
+\end{enumerate}
+
+\subsection{Code Implementation Details}
+
+\subsubsection{3-Qubit Bit-Flip Code Implementation}
+
+The encoding circuit for the bit-flip code follows the straightforward repetition code structure. Given a logical state (0 or 1), we prepare the first qubit in that state, then use CNOT gates to copy it to the other two qubits:
+
+\begin{lstlisting}[caption={3-Qubit Bit-Flip Code Encoding}]
+def encode(self, logical_state: int = 0) -> QuantumCircuit:
+    qreg = QuantumRegister(3, 'q')
+    creg = ClassicalRegister(3, 'c')
+    circuit = QuantumCircuit(qreg, creg)
+    
+    # Prepare logical state
+    if logical_state == 1:
+        circuit.x(qreg[0])
+    
+    # Encoding: |0⟩ -> |000⟩, |1⟩ -> |111⟩
+    circuit.cx(qreg[0], qreg[1])
+    circuit.cx(qreg[0], qreg[2])
+    
+    return circuit
+\end{lstlisting}
+
+Syndrome measurement uses parity measurements. For stabilizer $Z_0Z_1$, we apply CNOT gates to copy parity information to an ancilla, measure, then uncompute. The implementation from \texttt{qec\_codes.py}:
+
+\begin{lstlisting}[caption={Syndrome Measurement for 3-Qubit Bit-Flip Code}]
+def syndrome_measurement(self, qreg, creg):
+    circuit = QuantumCircuit(qreg, creg)
+    
+    # Measure Z_0 Z_1 (parity of qubits 0 and 1)
+    circuit.cx(qreg[0], qreg[1])
+    circuit.measure(qreg[1], creg[0])
+    circuit.cx(qreg[0], qreg[1])  # Uncompute to restore q1
+    
+    # Measure Z_1 Z_2 (parity of qubits 1 and 2)
+    circuit.cx(qreg[1], qreg[2])
+    circuit.measure(qreg[2], creg[1])
+    circuit.cx(qreg[1], qreg[2])  # Uncompute to restore q2
+    
+    return circuit
+\end{lstlisting}
+
+Correction is straightforward: based on the 2-bit syndrome, we apply an $X$ gate to the appropriate qubit. The correction logic from \texttt{qec\_codes.py}:
+
+\begin{lstlisting}[caption={Correction Logic for 3-Qubit Bit-Flip Code}]
+def correct(self, syndrome: List[int]) -> QuantumCircuit:
+    qreg = QuantumRegister(3, 'q')
+    circuit = QuantumCircuit(qreg)
+    
+    if len(syndrome) != 2:
+        raise ValueError("Syndrome must be a 2-bit value")
+    
+    # Determine error location
+    if syndrome == [1, 0]:
+        circuit.x(qreg[0])  # Error on qubit 0
+    elif syndrome == [0, 1]:
+        circuit.x(qreg[2])  # Error on qubit 2
+    elif syndrome == [1, 1]:
+        circuit.x(qreg[1])  # Error on qubit 1
+    # [0, 0] means no error, no correction needed
+    
+    return circuit
+\end{lstlisting}
+
+\subsubsection{5-Qubit Perfect Code Implementation}
+
+The 5-qubit perfect code implementation is more complex. The encoding circuit involves a sequence of Hadamard and controlled-$Z$ gates arranged in a specific pattern to create the required entanglement structure. The stabilizer measurement circuit applies the four stabilizer generators using ancilla qubits and controlled operations.
+
+The correction lookup table maps 16 possible syndromes to specific correction operations. This table was constructed empirically through systematic testing: for each possible single-qubit error type and location, we measured the resulting syndrome and recorded the mapping. The correction operations involve applying the appropriate Pauli operator ($X$, $Y$, or $Z$) to the affected qubit.
+
+\subsection{Error Injection System}
+
+Our error injection system supports multiple error models:
+
+\begin{itemize}
+    \item \textbf{Discrete Pauli Errors:} $X$ (bit-flip), $Z$ (phase-flip), $Y$ (combined), and depolarizing (probabilistic mixture).
+    
+    \item \textbf{Continuous Rotation Errors:} $R_x(\theta)$, $R_y(\theta)$, $R_z(\theta)$ gates with custom rotation angles. These represent realistic decoherence processes.
+    
+    \item \textbf{Error Parameters:} Supports probabilistic error injection, multiple simultaneous errors, and custom qubit selection.
+\end{itemize}
+
+The \texttt{ErrorInjector} class handles error injection by composing error gates into the quantum circuit at the specified locations. Core implementation from \texttt{error\_injection.py}:
+
+\begin{lstlisting}[caption={Error Injection Implementation}]
+def inject_error(self, circuit: QuantumCircuit, error_type: ErrorType,
+                 qubit: int, error_probability: float = 1.0,
+                 rotation_angle: float = None) -> QuantumCircuit:
+    error_circuit = circuit.copy()
+    
+    # Apply error with given probability
+    if error_probability >= 1.0 - 1e-10:
+        should_apply = True
+    else:
+        should_apply = np.random.random() < error_probability
+    
+    if should_apply:
+        if error_circuit.qregs:
+            qreg = error_circuit.qregs[0]
+            target_qubit = qreg[qubit]
+        
+        if error_type == ErrorType.BIT_FLIP:
+            error_circuit.x(target_qubit)
+        elif error_type == ErrorType.PHASE_FLIP:
+            error_circuit.z(target_qubit)
+        elif error_type == ErrorType.Y_ERROR:
+            error_circuit.y(target_qubit)
+        elif error_type == ErrorType.ROTATION_X:
+            angle = rotation_angle if rotation_angle is not None else np.pi / 4
+            error_circuit.rx(angle, target_qubit)
+        elif error_type == ErrorType.ROTATION_Y:
+            angle = rotation_angle if rotation_angle is not None else np.pi / 4
+            error_circuit.ry(angle, target_qubit)
+        elif error_type == ErrorType.ROTATION_Z:
+            angle = rotation_angle if rotation_angle is not None else np.pi / 4
+            error_circuit.rz(angle, target_qubit)
+    
+    return error_circuit
+\end{lstlisting}
+
+\subsection{Syndrome Extraction and Correction}
+
+Syndrome extraction involves composing the error circuit with the syndrome measurement circuit and running the simulation. The measurement results yield a classical bitstring (syndrome) that identifies the error. Our backend extracts this syndrome using the implementation from \texttt{backend.py}:
+
+\begin{lstlisting}[caption={Syndrome Extraction from Measurement Results}]
+def extract_syndrome(self, circuit: QuantumCircuit,
+                     syndrome_measurement_circuit: QuantumCircuit) -> List[int]:
+    qreg = circuit.qregs[0]
+    full_circuit = QuantumCircuit(qreg)
+    
+    # Copy all quantum operations (skip measurements)
+    for instruction in circuit.data:
+        if instruction.operation.name != 'measure':
+            full_circuit.append(instruction.operation, instruction.qubits)
+    
+    # Create classical register for syndrome
+    n_syndromes = syndrome_measurement_circuit.num_clbits
+    creg = ClassicalRegister(n_syndromes, 'syndrome')
+    full_circuit.add_register(creg)
+    
+    # Rebuild syndrome measurement using the same quantum register
+    for instruction in syndrome_measurement_circuit.data:
+        op = instruction.operation
+        qubits = instruction.qubits
+        clbits = instruction.clbits
+        new_qubits = [qreg[q._index] for q in qubits if q._index < len(qreg)]
+        new_clbits = [creg[c._index] for c in clbits if c._index < n_syndromes]
+        if new_qubits and new_clbits:
+            full_circuit.append(op, new_qubits, new_clbits)
+    
+    # Run simulation with multiple shots
+    job = self.simulator.run(full_circuit, shots=1024)
+    result = job.result()
+    counts = result.get_counts()
+    
+    # Extract most probable syndrome
+    if counts:
+        bitstring = max(counts, key=counts.get)
+        bitstring_clean = ''.join(c for c in bitstring if c in '01')
+        if len(bitstring_clean) >= n_syndromes:
+            syndrome = [int(bit) for bit in reversed(bitstring_clean[:n_syndromes])]
+            return syndrome
+    
+    return [0] * n_syndromes
+\end{lstlisting}
+
+To quantify error correction effectiveness, we compute fidelity between ideal and corrupted states using the implementation from \texttt{backend.py}:
+
+\begin{lstlisting}[caption={Fidelity Calculation Between Quantum States}]
+def calculate_fidelity(self, ideal_state: Statevector,
+                       noisy_state: Statevector) -> float:
+    """
+    Calculate fidelity between ideal and noisy states.
+    Fidelity = |⟨ψ_ideal|ψ_noisy⟩|²
+    """
+    # Calculate overlap
+    overlap = ideal_state.inner(noisy_state)
+    fidelity = abs(overlap) ** 2
+    return fidelity
+\end{lstlisting}
+
+Correction is applied based on the syndrome using a lookup table. For the 3-qubit code, this is a simple 4-entry table. For the 5-qubit code, we use a 16-entry table covering all possible single-qubit errors.
+
+\subsection{Visualization and User Interface}
+
+We provide multiple interfaces for different user needs:
+
+\begin{itemize}
+    \item \textbf{Streamlit Web Interface:} Interactive step-by-step workflow with real-time visualizations, parameter selection widgets, and educational explanations.
+    
+    \item \textbf{Jupyter Notebook:} Interactive widgets for experimentation and learning.
+    
+    \item \textbf{Programmatic API:} Python scripts for batch processing and automated analysis.
+\end{itemize}
+
+Visualizations include:
+\begin{itemize}
+    \item Circuit diagrams at each stage (encoding, error, syndrome, correction, decoding)
+    \item State vector probability distributions
+    \item 2D/3D spatial representations of qubits and stabilizers (PanQEC-inspired style)
+    \item Fidelity evolution charts
+    \item Syndrome lookup tables
+\end{itemize}
+
+\subsection{Technology Stack}
+
+Our implementation uses:
+\begin{itemize}
+    \item \textbf{Python 3.8+}: Core programming language
+    \item \textbf{Qiskit 0.45.0+}: Quantum circuit construction and simulation
+    \item \textbf{Qiskit Aer}: State vector simulation backend
+    \item \textbf{NumPy}: Numerical computations
+    \item \textbf{Matplotlib/Plotly}: Visualization (static and interactive)
+    \item \textbf{Streamlit}: Web-based user interface
+\end{itemize}
+
+\section{Results and Analysis}
+
+\subsection{3-Qubit Bit-Flip Code Performance}
+
+We tested the 3-qubit bit-flip code with various error scenarios. For a bit-flip error on qubit 0 with logical state $|1_L\rangle = |111\rangle$, the results demonstrate perfect error correction:
+
+\begin{table}[h]
+\centering
+\caption{Fidelity Analysis for 3-Qubit Bit-Flip Code (Bit-Flip Error)}
+\begin{tabular}{lc}
+\toprule
+Stage & Fidelity \\
+\midrule
+After Encoding & 1.0000 \\
+After Error (X on q0) & 0.0000 \\
+After Correction & 1.0000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The code successfully detects and corrects the error, restoring fidelity to 1.0. However, as expected from theory, the code fails for phase-flip errors: a $Z$ error on any qubit results in fidelity 0.854 (for rotation angle $\pi/4$) even after correction, since the stabilizers cannot detect phase errors.
+
+\subsection{5-Qubit Perfect Code Performance}
+
+The 5-qubit perfect code demonstrates correction capability for all single-qubit Pauli errors. Table 2 shows results for different error types:
+
+\begin{table}[h]
+\centering
+\caption{Error Correction Performance for 5-Qubit Perfect Code}
+\begin{tabular}{lcc}
+\toprule
+Error Type & Fidelity (After Error) & Fidelity (After Correction) \\
+\midrule
+Bit-flip (X) & 0.0000 & 1.0000 \\
+Phase-flip (Z) & 0.0000 & 1.0000 \\
+Y error & 0.0000 & 1.0000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The perfect code successfully corrects all discrete single-qubit Pauli errors, validating its theoretical properties. The code correctly identifies errors through syndrome measurement and applies appropriate corrections, restoring the encoded state with perfect fidelity.
+
+\subsection{Rotation Error Analysis}
+
+For continuous rotation errors, the results differ significantly. Rotation errors create continuous deviations from the code space, which discrete stabilizer codes cannot perfectly correct. Table 3 shows results for $R_x(\pi/4)$ rotation errors:
+
+\begin{table}[h]
+\centering
+\caption{Rotation Error Correction ($R_x$ gate, $\theta = \pi/4$)}
+\begin{tabular}{lcc}
+\toprule
+Code & Fidelity (After Error) & Fidelity (After Correction) \\
+\midrule
+3-Qubit Bit-Flip & 0.854 & 0.854 \\
+5-Qubit Perfect & 0.854 & 0.854 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Both codes show identical behavior: the fidelity after correction equals the fidelity after error, indicating that the correction procedure does not improve the state. This is theoretically expected: stabilizer codes are designed for discrete Pauli errors, not continuous rotations. Small rotation angles can be approximated as discrete errors, but perfect correction is impossible.
+
+This highlights a fundamental limitation: realistic quantum systems experience continuous decoherence, but discrete codes provide only approximate correction. This motivates the need for fault-tolerant protocols and error suppression techniques in addition to error correction.
+
+\subsection{Syndrome Analysis}
+
+Our syndrome extraction correctly identifies error locations. For the 3-qubit code, we validated the syndrome lookup table through systematic testing. Table 4 shows the complete mapping:
+
+\begin{table}[h]
+\centering
+\caption{Syndrome Lookup Table for 3-Qubit Bit-Flip Code}
+\begin{tabular}{ll}
+\toprule
+Syndrome & Correction \\
+\midrule
+00 & No error \\
+10 & X on qubit 0 \\
+01 & X on qubit 2 \\
+11 & X on qubit 1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For the 5-qubit code, all 16 syndromes are correctly mapped to appropriate corrections, covering all 15 non-trivial single-qubit errors plus the no-error case.
+
+\subsection{Fidelity Evolution}
+
+Throughout the QEC process, fidelity evolves as expected:
+\begin{enumerate}
+    \item \textbf{After Encoding:} Fidelity = 1.0 (perfect encoded state)
+    \item \textbf{After Error Injection:} Fidelity drops (error corrupts the state)
+    \item \textbf{After Correction:} Fidelity recovers (for correctable errors) or remains low (for uncorrectable errors)
+\end{enumerate}
+
+This evolution provides quantitative validation of the error correction mechanism and enables comparison between different codes and error types.
+
+\subsection{Code Validation}
+
+We developed a comprehensive test suite (\texttt{tests/test\_perfect\_code\_errors.py}) covering 14 test cases for the 5-qubit perfect code, testing all error types (bit-flip, phase-flip, Y errors, depolarizing, and rotation errors for $R_x$, $R_y$, $R_z$). All tests validate that:
+\begin{itemize}
+    \item Syndrome detection works correctly for all error types
+    \item Correction lookup table is complete and accurate
+    \item Fidelity calculations are consistent
+    \item Discrete Pauli errors are corrected with high fidelity
+    \item Rotation errors show expected partial correction (theoretical limitation)
+\end{itemize}
+
+\section{Limitations and Discussion}
+
+\subsection{Theoretical Limitations}
+
+Our implementation, while functionally correct, is subject to several theoretical limitations:
+
+\begin{enumerate}
+    \item \textbf{Discrete vs. Continuous Errors:} Stabilizer codes correct discrete Pauli errors ($X$, $Y$, $Z$) but not continuous rotation errors. Real quantum systems experience continuous decoherence, creating a mismatch between error models and correction capabilities. Small rotations can be approximated, but perfect correction is impossible.
+    
+    \item \textbf{Single Error Correction:} Both codes correct only single-qubit errors. Multiple simultaneous errors can cause code failure. Real quantum systems experience errors continuously, necessitating more sophisticated codes (e.g., surface codes) with error thresholds.
+    
+    \item \textbf{Code Distance:} The 3-qubit code has distance 3 (detects 2 errors, corrects 1), while the 5-qubit code also has distance 3 but corrects all single-qubit error types. Larger codes with greater distance are needed for higher error rates.
+    
+    \item \textbf{Measurement Errors:} Our implementation assumes perfect syndrome measurement. In practice, measurement operations themselves are noisy, requiring fault-tolerant measurement protocols.
+\end{enumerate}
+
+\subsection{Implementation Limitations}
+
+Our simulation-based implementation has several practical limitations:
+
+\begin{enumerate}
+    \item \textbf{Perfect Simulation:} We use ideal quantum simulation (state vector evolution). Real hardware introduces additional noise in gates, measurements, and qubit interactions that our simulation does not capture.
+    
+    \item \textbf{Fixed Error Models:} We assume known error types and locations for demonstration. Real quantum systems experience unknown, probabilistic errors with spatial and temporal correlations.
+    
+    \item \textbf{No Fault Tolerance:} Our implementation doesn't account for errors in the error correction process itself. Fault-tolerant QEC requires additional layers of encoding and carefully designed measurement protocols.
+    
+    \item \textbf{Finite Precision:} Numerical simulations have finite precision, though this is negligible for our purposes.
+\end{enumerate}
+
+\subsection{Scaling Considerations}
+
+As quantum systems scale, overhead becomes significant:
+\begin{itemize}
+    \item 3-qubit code: 3$\times$ overhead for single error correction
+    \item 5-qubit code: 5$\times$ overhead for arbitrary single error correction
+    \item Larger codes (e.g., surface codes): Require even more overhead but provide better error thresholds and can correct multiple errors
+\end{itemize}
+
+The overhead must be balanced against error rates: higher overhead enables lower error thresholds, making computation possible with noisier hardware.
+
+\subsection{Future Directions}
+
+Potential extensions and improvements include:
+
+\begin{itemize}
+    \item \textbf{Additional Codes:} Implementation of Shor code (9-qubit), Steane code (7-qubit), or surface codes (2D/3D topological codes) for comparison.
+    
+    \item \textbf{Fault Tolerance:} Integration of fault-tolerant protocols that account for errors in error correction operations.
+    
+    \item \textbf{Real Hardware:} Integration with real quantum hardware (IBM Quantum, Google Quantum AI) to test codes under realistic noise conditions.
+    
+    \item \textbf{Error Threshold Analysis:} Calculation of error thresholds—the maximum error rate below which error correction improves fidelity.
+    
+    \item \textbf{Advanced Decoders:} Implementation of more sophisticated decoders (e.g., minimum-weight perfect matching for surface codes) that can handle multiple errors.
+    
+    \item \textbf{Noise Model Calibration:} Integration of realistic noise models calibrated from hardware characterization data.
+\end{itemize}
+
+\section{Conclusion}
+
+This project successfully implements and analyzes two fundamental quantum error correction codes, providing both theoretical understanding and practical demonstration of QEC principles. Our interactive visualization tool effectively demonstrates the complete error correction workflow, from encoding through error detection and correction.
+
+Key findings:
+
+\begin{enumerate}
+    \item The 3-qubit bit-flip code successfully corrects single bit-flip errors, achieving perfect fidelity recovery, but fails for phase-flip errors as theoretically predicted.
+    
+    \item The 5-qubit perfect code corrects arbitrary single-qubit Pauli errors ($X$, $Y$, $Z$), validating its theoretical design as the smallest universal single-error correction code.
+    
+    \item Both codes fail to perfectly correct continuous rotation errors, highlighting the distinction between discrete and continuous error models and the limitations of stabilizer codes for realistic decoherence.
+    
+    \item Fidelity metrics provide quantitative validation of error correction effectiveness, enabling comparison between codes and error types.
+\end{enumerate}
+
+The project achieves its educational goals by providing clear visualization and analysis of QEC mechanisms, while demonstrating the practical challenges and limitations of error correction in quantum computing. The implementation serves as a foundation for understanding more complex error correction schemes used in current quantum computing research, such as surface codes and fault-tolerant protocols.
+
+Our modular architecture and extensible design enable future enhancements, and the comprehensive documentation supports reproducibility and educational use. The tool bridges the gap between theory and practice, making complex QEC concepts accessible through interactive exploration.
+
+
+\section{References}
+
+\begin{enumerate}
+    \item Nielsen, M. A., \& Chuang, I. L. (2010). \textit{Quantum Computation and Quantum Information: 10th Anniversary Edition}. Cambridge University Press.
+    
+    \item Laflamme, R., Miquel, C., Paz, J. P., \& Zurek, W. H. (1996). Perfect quantum error correcting code. \textit{Physical Review Letters}, 77(1), 198–201.
+    
+    \item Shor, P. W. (1995). Scheme for reducing decoherence in quantum computer memory. \textit{Physical Review A}, 52(4), R2493–R2496.
+    
+    \item Steane, A. M. (1996). Error correcting codes in quantum theory. \textit{Physical Review Letters}, 77(5), 793–797.
+        
+    \item Gottesman, D. (1997). \textit{Stabilizer codes and quantum error correction} (Doctoral dissertation, California Institute of Technology).
+                    
+    \item Qiskit Development Team. (2024). Qiskit: An Open-source Framework for Quantum Computing. \url{https://qiskit.org/}
+    
+\end{enumerate}
+
+\end{document}
+
