@@ -76,7 +76,7 @@ python -c "import qiskit; print('Qiskit version:', qiskit.__version__)"
 
 ## Usage
 
-### 🌟 **NEW: Web Frontend (Most Beginner-Friendly!)**
+### 🌟 **How to run the project:**
 
 For the best visual experience with a modern web interface:
 
