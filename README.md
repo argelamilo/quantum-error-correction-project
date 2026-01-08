@@ -103,11 +103,17 @@ The web frontend provides:
 ## Step-by-Step Usage Guide
 
 The web frontend guides you through a complete quantum error correction workflow in six intuitive steps. 
+
 **Step 1: Select Code** - Choose between the 3-qubit Bit-Flip Code (beginner-friendly) or the 5-qubit Perfect Code (advanced), with interactive 2D/3D previews showing the qubit and stabilizer structure. 
+
 **Step 2: Encode** - Select a logical qubit state (|0⟩ or |1⟩) and click "Encode Qubit" to create the encoded state, visualizing how your logical information is distributed across multiple physical qubits. 
+
 **Step 3: Inject Error** - Choose an error type (bit-flip, phase-flip, rotation errors, etc.), select which qubit to affect, and optionally set an error probability, then click "Inject Error" to simulate quantum noise. 
+
 **Step 4: Measure Syndrome** - Click "Measure Syndrome" to detect the error location; the interface displays the syndrome bit pattern and highlights which stabilizers detected the error in the visualization. 
+
 **Step 5: Apply Correction** - Review the detected syndrome and click "Apply Correction" to automatically fix the error based on the syndrome lookup table. 
+
 **Step 6: View Results** - Examine comprehensive results including fidelity metrics (before and after correction), state vector probability distributions, 2D/3D visualizations showing corrected qubits in green, and success indicators confirming whether the error was successfully corrected. Throughout the process, the sidebar shows your progress, and each step includes educational explanations and visualizations to help you understand quantum error correction principles.
 
 
